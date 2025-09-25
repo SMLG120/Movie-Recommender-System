@@ -1,10 +1,12 @@
 from flask import Flask, jsonify
 import requests
 import pandas as pd
-from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from kafka import KafkaConsumer
 import json
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+import pickle
 
 app = Flask(__name__)
 
@@ -27,6 +29,27 @@ def fetch_user_data(user_id):
         if response.status_code == 200:
             user_cache[user_id] = response.json()
     return user_cache.get(user_id)
+
+# Load MLP model and mappings
+MODEL_PATH = 'model_watch_time_mlp.h5'
+MAPPINGS_PATH = 'model_watch_time_mappings.pkl'
+
+try:
+    mlp_model = load_model(MODEL_PATH)
+    with open(MAPPINGS_PATH, 'rb') as f:
+        mappings = pickle.load(f)
+    user_map = mappings['user_map']
+    movie_map = mappings['movie_map']
+    all_movie_ids = mappings['movie_ids']
+    scaler = mappings['scaler']
+    print('Loaded watch_time MLP model and mappings')
+except Exception as e:
+    print(f'Error loading model: {e}')
+    mlp_model = None
+    user_map = {}
+    movie_map = {}
+    all_movie_ids = []
+    scaler = None
 
 def setup_kafka_consumer():
     """Setup Kafka consumer for movie ratings"""
@@ -63,65 +86,52 @@ def process_kafka_messages():
         except Exception as e:
             print(f"Error processing message: {e}")
 
-class MovieRecommender:
-    def __init__(self):
-        self.user_matrix = None
-        self.user_ids = None
-        self.movie_ids = None
-        self.model = NearestNeighbors(n_neighbors=5, algorithm='ball_tree')
-        
-    def update_model(self, ratings_dict):
-        """Update model with current ratings"""
-        # Convert ratings dict to matrix
-        unique_users = sorted(ratings_dict.keys())
-        all_movies = set()
-        for user_ratings in ratings_dict.values():
-            all_movies.update(user_ratings.keys())
-        unique_movies = sorted(all_movies)
-        
-        # Create matrix
-        matrix = np.zeros((len(unique_users), len(unique_movies)))
-        for i, user_id in enumerate(unique_users):
-            for j, movie_id in enumerate(unique_movies):
-                matrix[i, j] = ratings_dict[user_id].get(movie_id, 0)
-        
-        self.user_matrix = matrix
-        self.user_ids = unique_users
-        self.movie_ids = unique_movies
-        self.model.fit(matrix)
+class MLPRecommender:
+    def __init__(self, model, user_map, movie_map, all_movie_ids, scaler):
+        self.model = model
+        self.user_map = user_map
+        self.movie_map = movie_map
+        self.all_movie_ids = all_movie_ids
+        self.scaler = scaler
         
     def recommend(self, user_id, n_recommendations=20):
-        """Get recommendations for user"""
-        if user_id not in self.user_ids:
-            return []
-            
-        user_idx = self.user_ids.index(user_id)
-        _, indices = self.model.kneighbors([self.user_matrix[user_idx]])
-        
-        # Get recommendations from similar users
-        similar_users = indices[0]
-        recommendations = set()
-        for sim_user_idx in similar_users:
-            user_movies = np.where(self.user_matrix[sim_user_idx] > 0)[0]
-            recommendations.update([self.movie_ids[idx] for idx in user_movies])
-        
-        return list(recommendations)[:n_recommendations]
+        """Get recommendations for user using MLP predictions"""
+        if self.model is None or user_id not in self.user_map:
+            # Fallback to popular movies
+            return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] * 2
+
+        user_idx = self.user_map[user_id]
+        rated_movies = user_ratings.get(user_id, {})
+
+        # Predict watch_time for all movies
+        predictions = []
+        for movie_id in self.all_movie_ids:
+            if movie_id not in rated_movies:
+                movie_idx = self.movie_map.get(movie_id)
+                if movie_idx is not None:
+                    pred_watch_time_scaled = self.model.predict([np.array([user_idx]), np.array([movie_idx])], verbose=0)[0][0]
+                    # Inverse scale to minutes for interpretability (optional for ranking)
+                    if self.scaler:
+                        pred_watch_time = self.scaler.inverse_transform([[pred_watch_time_scaled]])[0][0]
+                    else:
+                        pred_watch_time = pred_watch_time_scaled
+                    predictions.append((movie_id, pred_watch_time))
+
+        # Sort by predicted watch_time descending
+        predictions.sort(key=lambda x: x[1], reverse=True)
+        recommended_ids = [pred[0] for pred in predictions[:n_recommendations]]
+
+        return recommended_ids
 
 # Initialize recommender
-recommender = MovieRecommender()
+recommender = MLPRecommender(mlp_model, user_map, movie_map, all_movie_ids, scaler)
 
 @app.route('/recommend/<user_id>')
 def recommend(user_id):
-    # Update model with current ratings
-    recommender.update_model(user_ratings)
-    
     # Get recommendations
     recommendations = recommender.recommend(user_id)
-    if not recommendations:
-        # Fallback to popular movies
-        recommendations = ["1", "2", "3", "4", "5"]
     
-    return ','.join(recommendations[:20])
+    return ','.join(recommendations)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8082)
