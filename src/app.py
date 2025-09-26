@@ -7,6 +7,7 @@ import json
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import pickle
+import os
 
 app = Flask(__name__)
 
@@ -31,8 +32,8 @@ def fetch_user_data(user_id):
     return user_cache.get(user_id)
 
 # Load MLP model and mappings
-MODEL_PATH = 'model_watch_time_mlp.h5'
-MAPPINGS_PATH = 'model_watch_time_mappings.pkl'
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'Data', 'model_watch_time_mlp.h5')
+MAPPINGS_PATH = os.path.join(os.path.dirname(__file__), '..', 'Data', 'model_watch_time_mappings.pkl')
 
 try:
     mlp_model = load_model(MODEL_PATH)

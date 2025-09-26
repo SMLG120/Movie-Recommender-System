@@ -13,4 +13,4 @@ COPY . .
 EXPOSE 8082
 
 # Command to start your inference service
-CMD ["python", "app.py"]
+CMD ["python", "src/app.py"]

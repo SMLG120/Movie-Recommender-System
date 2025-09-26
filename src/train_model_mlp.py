@@ -7,12 +7,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 import sys
+import os
 
-# usage: python train_model.py watch_time.csv model.pkl
+# usage: python train_model.py Data/watch_time.csv model.pkl
 ratings_csv = sys.argv[1]
 out_model = sys.argv[2]
 
-df = pd.read_csv(ratings_csv)  # columns: user_id, movie_id, minutes_watched
+# Adjust path relative to script location (assuming ratings_csv starts with 'Data/')
+ratings_path = os.path.join(os.path.dirname(__file__), '..', ratings_csv)
+df = pd.read_csv(ratings_path)  # columns: user_id, movie_id, minutes_watched
 df = df.rename(columns={'minutes_watched': 'watch_time'})
 
 # Encode user_id and movie_id to integers
@@ -64,7 +67,10 @@ y_test_scaled = scaler.transform(y_test.reshape(-1, 1)).flatten()
 model.fit([X_user_train, X_movie_train], y_train_scaled, epochs=10, batch_size=32, validation_data=([X_user_test, X_movie_test], y_test_scaled))
 
 # Save model and mappings
-model.save(out_model + '_watch_time_mlp.h5')
+model_path = os.path.join(os.path.dirname(__file__), '..', 'Data', out_model + '_watch_time_mlp.h5')
+mappings_path = os.path.join(os.path.dirname(__file__), '..', 'Data', out_model + '_watch_time_mappings.pkl')
+
+model.save(model_path)
 
 mappings = {
     'user_map': user_map,
@@ -74,8 +80,8 @@ mappings = {
     'scaler': scaler
 }
 
-with open(out_model + '_watch_time_mappings.pkl', 'wb') as f:
+with open(mappings_path, 'wb') as f:
     pickle.dump(mappings, f)
 
-print('Saved MLP model to', out_model + '_watch_time_mlp.h5')
-print('Saved mappings to', out_model + '_watch_time_mappings.pkl')
+print('Saved MLP model to', model_path)
+print('Saved mappings to', mappings_path)

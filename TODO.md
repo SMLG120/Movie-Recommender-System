@@ -1,3 +1,6 @@
+# TODO for Installing
+- [x] Create virtual environment (venv) in order to download all necessary python libraries(numpy, sklearn, pandas, etc.)
+
 # TODO for MLP Training Implementation
 
 - [x] Update requirements.txt to include tensorflow
