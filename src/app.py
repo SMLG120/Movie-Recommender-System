@@ -4,8 +4,7 @@ import pandas as pd
 import numpy as np
 from kafka import KafkaConsumer
 import json
-import tensorflow as tf
-from tensorflow.keras.models import load_model
+import joblib
 import pickle
 import os
 
@@ -31,22 +30,22 @@ def fetch_user_data(user_id):
             user_cache[user_id] = response.json()
     return user_cache.get(user_id)
 
-# Load MLP model and mappings
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'Data', 'model_watch_time_mlp.h5')
+# Load XGBoost model and mappings
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'Data', 'model_watch_time_xgb.pkl')
 MAPPINGS_PATH = os.path.join(os.path.dirname(__file__), '..', 'Data', 'model_watch_time_mappings.pkl')
 
 try:
-    mlp_model = load_model(MODEL_PATH)
+    xgb_model = joblib.load(MODEL_PATH)
     with open(MAPPINGS_PATH, 'rb') as f:
         mappings = pickle.load(f)
     user_map = mappings['user_map']
     movie_map = mappings['movie_map']
     all_movie_ids = mappings['movie_ids']
     scaler = mappings['scaler']
-    print('Loaded watch_time MLP model and mappings')
+    print('Loaded watch_time XGBoost model and mappings')
 except Exception as e:
     print(f'Error loading model: {e}')
-    mlp_model = None
+    xgb_model = None
     user_map = {}
     movie_map = {}
     all_movie_ids = []
@@ -87,7 +86,7 @@ def process_kafka_messages():
         except Exception as e:
             print(f"Error processing message: {e}")
 
-class MLPRecommender:
+class XGBoostRecommender:
     def __init__(self, model, user_map, movie_map, all_movie_ids, scaler):
         self.model = model
         self.user_map = user_map
@@ -96,7 +95,7 @@ class MLPRecommender:
         self.scaler = scaler
         
     def recommend(self, user_id, n_recommendations=20):
-        """Get recommendations for user using MLP predictions"""
+        """Get recommendations for user using XGBoost predictions"""
         if self.model is None or user_id not in self.user_map:
             # Fallback to popular movies
             return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] * 2
@@ -110,7 +109,7 @@ class MLPRecommender:
             if movie_id not in rated_movies:
                 movie_idx = self.movie_map.get(movie_id)
                 if movie_idx is not None:
-                    pred_watch_time_scaled = self.model.predict([np.array([user_idx]), np.array([movie_idx])], verbose=0)[0][0]
+                    pred_watch_time_scaled = self.model.predict(np.array([[user_idx, movie_idx]]))[0]
                     # Inverse scale to minutes for interpretability (optional for ranking)
                     if self.scaler:
                         pred_watch_time = self.scaler.inverse_transform([[pred_watch_time_scaled]])[0][0]
@@ -125,7 +124,7 @@ class MLPRecommender:
         return recommended_ids
 
 # Initialize recommender
-recommender = MLPRecommender(mlp_model, user_map, movie_map, all_movie_ids, scaler)
+recommender = XGBoostRecommender(xgb_model, user_map, movie_map, all_movie_ids, scaler)
 
 @app.route('/recommend/<user_id>')
 def recommend(user_id):

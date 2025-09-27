@@ -4,6 +4,7 @@ import xgboost as xgb
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Embedding, Concatenate, Flatten, Dense
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 import pickle
@@ -104,6 +105,12 @@ scaler = MinMaxScaler()
 y_train_scaled = scaler.fit_transform(y_train.reshape(-1, 1)).flatten()
 y_test_scaled = scaler.transform(y_test.reshape(-1, 1)).flatten()
 
+# Prepare binary y for logistic regression
+threshold = 30
+y_binary = (y > threshold).astype(int)
+_, _, _, _, y_binary_train, y_binary_test = train_test_split(
+    X_user, X_movie, y_binary, test_size=0.2, random_state=42)
+
 # Train XGBoost
 def train_xgb(X_train, y_train):
     model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42)
@@ -130,23 +137,49 @@ def train_mlp(X_user_train, X_movie_train, y_train):
 
 mlp_model, mlp_train_time, mlp_peak_mem = measure_training(train_mlp, X_user_train, X_movie_train, y_train_scaled)
 
+# Train Logistic Regression
+def train_logistic(X_train, y_train):
+    model = LogisticRegression(random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+logistic_model, logistic_train_time, logistic_peak_mem = measure_training(train_logistic, X_xgb_train, y_binary_train)
+
 # Measure inference
 xgb_inf_time = measure_inference(xgb_model, X_xgb_test, is_mlp=False)
 mlp_inf_time = measure_inference(mlp_model, [X_user_test, X_movie_test], is_mlp=True)
+logistic_inf_time = measure_inference(logistic_model, X_xgb_test, is_mlp=False)
+
+# Compute accuracy on binary classification task
+xgb_preds = xgb_model.predict(X_xgb_test)
+xgb_inverse_preds = scaler.inverse_transform(xgb_preds.reshape(-1, 1)).flatten()
+xgb_binary_preds = (xgb_inverse_preds > threshold).astype(int)
+xgb_accuracy = (xgb_binary_preds == y_binary_test).mean()
+
+mlp_preds = mlp_model.predict([X_user_test, X_movie_test], verbose=0).flatten()
+mlp_inverse_preds = scaler.inverse_transform(mlp_preds.reshape(-1, 1)).flatten()
+mlp_binary_preds = (mlp_inverse_preds > threshold).astype(int)
+mlp_accuracy = (mlp_binary_preds == y_binary_test).mean()
+
+logistic_preds = logistic_model.predict(X_xgb_test)
+logistic_accuracy = (logistic_preds == y_binary_test).mean()
 
 # Model sizes and params
 xgb_size = get_model_size(xgb_model, 'xgb')
 mlp_size = get_model_size(mlp_model, 'mlp')
+logistic_size = get_model_size(logistic_model, 'xgb')  # Reuse xgb logic for joblib
 xgb_params = get_param_count(xgb_model, 'xgb')
 mlp_params = get_param_count(mlp_model, 'mlp')
+logistic_params = len(logistic_model.coef_[0]) + 1  # features + intercept
 
 # Print results
-print("Complexity Comparison: XGBoost vs MLP")
-print("=" * 50)
-print(f"{'Metric':<20} {'XGBoost':<15} {'MLP':<15}")
-print("-" * 50)
-print(f"{'Training Time (s)':<20} {xgb_train_time:<15.2f} {mlp_train_time:<15.2f}")
-print(f"{'Inference Time (s)':<20} {xgb_inf_time:<15.2f} {mlp_inf_time:<15.2f}")
-print(f"{'Peak Memory (MB)':<20} {xgb_peak_mem:<15.2f} {mlp_peak_mem:<15.2f}")
-print(f"{'Model Size (MB)':<20} {xgb_size:<15.2f} {mlp_size:<15.2f}")
-print(f"{'Param Count':<20} {xgb_params:<15} {mlp_params:<15}")
+print("Complexity Comparison: XGBoost vs MLP vs Logistic Regression")
+print("=" * 65)
+print(f"{'Metric':<20} {'XGBoost':<15} {'MLP':<15} {'Logistic':<15}")
+print("-" * 65)
+print(f"{'Training Time (s)':<20} {xgb_train_time:<15.2f} {mlp_train_time:<15.2f} {logistic_train_time:<15.2f}")
+print(f"{'Inference Time (s)':<20} {xgb_inf_time:<15.2f} {mlp_inf_time:<15.2f} {logistic_inf_time:<15.2f}")
+print(f"{'Peak Memory (MB)':<20} {xgb_peak_mem:<15.2f} {mlp_peak_mem:<15.2f} {logistic_peak_mem:<15.2f}")
+print(f"{'Model Size (MB)':<20} {xgb_size:<15.2f} {mlp_size:<15.2f} {logistic_size:<15.2f}")
+print(f"{'Param Count':<20} {xgb_params:<15} {mlp_params:<15} {logistic_params:<15}")
+print(f"{'Accuracy':<20} {xgb_accuracy:<15.4f} {mlp_accuracy:<15.4f} {logistic_accuracy:<15.4f}")

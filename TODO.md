@@ -16,3 +16,9 @@
 - [x] Update app.py to load updated model/mappings and adjust prediction logic for watch_time
 - [x] Run training script with Data/watch_time.csv to generate watch_time model
 - [x] Test the updated inference service with watch_time predictions
+
+# TODO for Logistic Regression Implementation
+
+- [x] Create src/train_model_logistic_regression.py for logistic regression training on binary watch_time classification
+- [x] Update src/compare_complexities.py to include logistic regression in complexity comparisons
+- [x] Test the updated compare_complexities.py script
