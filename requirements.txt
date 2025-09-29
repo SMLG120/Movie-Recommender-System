@@ -1,9 +1,13 @@
-flask==3.0.0
-requests==2.32.0
 pandas
 numpy
 scikit-learn
+xgboost==3.0.5
+joblib
+requests==2.32.0
+confluent-kafka==2.11.1
+huggingface_hub
+tqdm
+flask==3.0.0
 kafka-python
 tensorflow
-xgboost
 psutil
