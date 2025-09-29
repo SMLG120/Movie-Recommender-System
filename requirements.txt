@@ -1,0 +1,12 @@
+pandas
+numpy
+scikit-learn
+xgboost==3.0.5
+joblib
+
+requests
+confluent-kafka==2.11.1
+
+huggingface_hub
+
+tqdm
