@@ -3,10 +3,11 @@ numpy
 scikit-learn
 xgboost==3.0.5
 joblib
-
-requests
+requests==2.32.0
 confluent-kafka==2.11.1
-
 huggingface_hub
-
 tqdm
+flask==3.0.0
+kafka-python
+tensorflow
+psutil
