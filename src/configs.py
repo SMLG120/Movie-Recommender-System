@@ -1,0 +1,62 @@
+LANGUAGE_MAP = {
+    # Core languages
+    "English": "en", "Englisch": "en", "Anglais": "en",
+    "Español": "es", "Spanish": "es", "Castellano": "es",
+    "Deutsch": "de", "German": "de",
+    "Français": "fr", "French": "fr",
+    "Italiano": "it", "Italian": "it",
+    "Português": "pt", "Portuguese": "pt",
+    "Polski": "pl", "Polish": "pl",
+    "Magyar": "hu", "Hungarian": "hu",
+    "Română": "ro", "Romanian": "ro",
+    "Nederlands": "nl", "Dutch": "nl",
+    "ελληνικά": "el", "Greek": "el",
+    "русский": "ru", "Pусский": "ru", "Russian": "ru",
+    "Український": "uk", "Ukrainian": "uk",
+    "普通话": "zh", "中文": "zh", "Mandarin": "zh",
+    "广州话 / 廣州話": "yue", "Cantonese": "yue",
+    "日本語": "ja", "Japanese": "ja",
+    "한국어/조선말": "ko", "Korean": "ko",
+    "हिन्दी": "hi", "Hindi": "hi",
+    "தமிழ்": "ta", "Tamil": "ta",
+    "తెలుగు": "te", "Telugu": "te",
+    "اردو": "ur", "Urdu": "ur",
+    "العربية": "ar", "Arabic": "ar",
+    "עִבְרִית": "he", "Hebrew": "he",
+    "فارسی": "fa", "Farsi": "fa", "Persian": "fa",
+    "বাংলা": "bn", "Bengali": "bn",
+
+    # Nordics
+    "svenska": "sv", "Swedish": "sv",
+    "Dansk": "da", "Danish": "da",
+    "Norsk": "no", "Norwegian": "no",
+    "Íslenska": "is", "Icelandic": "is",
+    "suomi": "fi", "Finnish": "fi",
+
+    # Other European
+    "čeština": "cs", "Český": "cs", "Czech": "cs",
+    "Slovenčina": "sk", "Slovak": "sk",
+    "Slovenščina": "sl", "Slovenian": "sl",
+    "Hrvatski": "hr", "Croatian": "hr",
+    "Srpski": "sr", "Serbian": "sr",
+    "Bosanski": "bs", "Bosnian": "bs",
+    "Eesti": "et", "Estonian": "et",
+    "Latviešu": "lv", "Latvian": "lv",
+    "Lietuviakai": "lt", "Lithuanian": "lt",
+    "Galego": "gl", "Galician": "gl",
+    "Català": "ca", "Catalan": "ca",
+    "euskera": "eu", "Basque": "eu",
+
+    # African
+    "Afrikaans": "af",
+    "isiZulu": "zu",
+    "Kiswahili": "sw",
+    "Wolof": "wo",
+    "Bamanankan": "bm",
+    "Fulfulde": "ff",
+    "Somali": "so",
+
+    # Misc / Asian
+    "Tiếng Việt": "vi", "Vietnamese": "vi",
+    "ქართული": "ka", "Georgian": "ka",
+}
