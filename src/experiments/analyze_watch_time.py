@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 # Read the CSV file
-data_path = os.path.join(os.path.dirname(__file__), '..', 'Data', 'watch_time.csv')
+data_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Data', 'raw_data', 'watch_time.csv')
 df = pd.read_csv(data_path)
 
 # Group by movie_id and sum the minutes_watched
@@ -28,5 +28,5 @@ print(f"Standard deviation of watch time: {std_watch_time:.2f} minutes")
 print(f"Number of movies: {num_movies}")
 
 # Optionally, save to a new CSV
-output_path = os.path.join(os.path.dirname(__file__), '..', 'Data', 'popular_movies.csv')
+output_path = os.path.join(os.path.dirname(__file__), '..', '..', 'Data', 'popular_movies.csv')
 popular_movies.to_csv(output_path, index=False)

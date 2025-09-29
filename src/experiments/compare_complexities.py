@@ -71,7 +71,7 @@ if len(sys.argv) != 2:
     sys.exit(1)
 
 ratings_csv = sys.argv[1]
-ratings_path = os.path.join(os.path.dirname(__file__), '..', ratings_csv)
+ratings_path = os.path.join(os.path.dirname(__file__), '..', '..', ratings_csv)
 df = pd.read_csv(ratings_path)
 df = df.rename(columns={'minutes_watched': 'watch_time'})
 
