@@ -12,7 +12,7 @@ ratings_csv = sys.argv[1]
 out_model = sys.argv[2]
 
 # Adjust path relative to script location (assuming ratings_csv starts with 'Data/')
-ratings_path = os.path.join(os.path.dirname(__file__), '..', ratings_csv)
+ratings_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', ratings_csv))
 df = pd.read_csv(ratings_path)  # columns: user_id, movie_id, minutes_watched
 df = df.rename(columns={'minutes_watched': 'watch_time'})
 
@@ -45,8 +45,8 @@ model = LogisticRegression(random_state=42)
 model.fit(X_train, y_train)
 
 # Save model and mappings
-model_path = os.path.join(os.path.dirname(__file__), '..', 'Data', out_model + '_watch_time_logistic.pkl')
-mappings_path = os.path.join(os.path.dirname(__file__), '..', 'Data', out_model + '_watch_time_mappings.pkl')
+model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', 'Data', out_model + '_watch_time_logistic.pkl'))
+mappings_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', 'Data', out_model + '_watch_time_mappings.pkl'))
 
 joblib.dump(model, model_path)
 

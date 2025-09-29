@@ -14,7 +14,7 @@ ratings_csv = sys.argv[1]
 out_model = sys.argv[2]
 
 # Adjust path relative to script location (assuming ratings_csv starts with 'Data/')
-ratings_path = os.path.join(os.path.dirname(__file__), '..', ratings_csv)
+ratings_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', ratings_csv))
 df = pd.read_csv(ratings_path)  # columns: user_id, movie_id, minutes_watched
 df = df.rename(columns={'minutes_watched': 'watch_time'})
 
@@ -67,8 +67,8 @@ y_test_scaled = scaler.transform(y_test.reshape(-1, 1)).flatten()
 model.fit([X_user_train, X_movie_train], y_train_scaled, epochs=10, batch_size=32, validation_data=([X_user_test, X_movie_test], y_test_scaled))
 
 # Save model and mappings
-model_path = os.path.join(os.path.dirname(__file__), '..', 'Data', out_model + '_watch_time_mlp.h5')
-mappings_path = os.path.join(os.path.dirname(__file__), '..', 'Data', out_model + '_watch_time_mappings.pkl')
+model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', 'Data', out_model + '_watch_time_mlp.h5'))
+mappings_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '../..', 'Data', out_model + '_watch_time_mappings.pkl'))
 
 model.save(model_path)
 
