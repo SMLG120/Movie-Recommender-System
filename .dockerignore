@@ -1,0 +1,26 @@
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore local virtual environment
+venv/
+.venv/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore local testing files
+test_*.py
+*_test.py
+
+# Ignore Git files (if copying manually)
+.git/
+.gitignore

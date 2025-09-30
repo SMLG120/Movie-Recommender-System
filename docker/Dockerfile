@@ -1,16 +1,19 @@
-FROM python:3.9-slim-bullseye
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy the requirements file and install the dependencies
-COPY requirements.txt requirements.txt
+# Install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your application code into the container
+# Copy application code
 COPY . .
 
-# Expose the port your service will run on
-EXPOSE 8082
+# Expose port 8080
+EXPOSE 8080
 
-# Command to start your inference service
+# Set Python path
+ENV PYTHONPATH=/app:/app/src
+
+# Start the application
 CMD ["python", "src/app.py"]
