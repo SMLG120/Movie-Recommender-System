@@ -21,7 +21,7 @@ ssh team-6@fall2025-comp585-6.cs.mcgill.ca
 cd team-6
 
 # Build Docker image
-docker build -t movie-recommender:v1.0 .
+docker build -f docker/Dockerfile -t movie-recommender:v1.0 .
 
 # Run with logging limits (required)
 docker run -it --log-opt max-size=50m --log-opt max-file=5 -p 8080:8080 movie-recommender:v1.0
