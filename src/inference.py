@@ -59,7 +59,7 @@ class RecommenderEngine:
         top_movies = candidate_df.assign(pred_score=preds)
         top_movies = top_movies.sort_values("pred_score", ascending=False).head(top_n)
 
-        return ",".join(top_movies["movie_id"].tolist())
+        return ", ".join(top_movies["movie_id"].tolist())
 
 
 if __name__ == "__main__":
