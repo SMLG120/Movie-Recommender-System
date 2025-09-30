@@ -39,6 +39,7 @@ class RecommenderEngine:
         movies["user_id"] = user_data["user_id"]
         movies.rename(columns={"id": "movie_id"}, inplace=True)
         movies = movies.merge(user_df, on="user_id", how="left")
+        movies = movies.sample(frac=1).reset_index(drop=True) #shuffle
 
         return movies
 
