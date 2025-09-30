@@ -1,19 +1,24 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
+# Minimal system deps; libgomp1 is needed at runtime for xgboost openmp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps first for caching
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy your app
 COPY . .
 
-# Expose port 8080
+# Use the correct port your service listens on (8080 in your logs)
 EXPOSE 8080
 
-# Set Python path
-ENV PYTHONPATH=/app:/app/src
-
-# Start the application
+# Start the service (adjust path if your app lives in src/)
 CMD ["python", "src/app.py"]
