@@ -7,7 +7,7 @@ import numpy as np
 from feature_builder import FeatureBuilder
 
 class RecommenderEngine:
-    def __init__(self, model_path="src/models/xgb_recommender.joblib", movies_file="data/raw_data/movies.csv", repo_id=None, mode='prod'):
+    def __init__(self, model_path="models/xgb_recommender.joblib", movies_file="../data/raw_data/movies.csv", repo_id=None, mode='prod'):
         """Initialize service by loading model and movies data"""
         if mode != 'dev' and repo_id is not None:
             from huggingface_hub import hf_hub_download
