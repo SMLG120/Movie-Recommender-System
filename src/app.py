@@ -76,5 +76,5 @@ def root():
     return Response("Movie Recommender API", mimetype='text/plain')
 
 if __name__ == '__main__':
-    logger.info("🚀 Starting Movie Recommender API on port 8080")
+    logger.info("Starting Movie Recommender API on port 8080")
     app.run(host='0.0.0.0', port=8080, debug=False)
