@@ -57,19 +57,19 @@ The scripts under \`src/experiments/\` are small, training/analysis scripts that
 
 \- XGBoost experiment  
 ```bash  
-python src/experiments/train\_model\_xgb.py \<ratings\_csv\> \<out\_model\>  
+python src/experiments/train_model_xgb.py <ratings_csv> <out_model>  
 ```
 
 \- MLP experiment 
 
 ```bash  
-python src/experiments/train\_model\_mlp.py \<ratings\_csv\> \<out\_model\>  
+python src/experiments/train_model_mlp.py <ratings_csv> <out_model>  
 ```
 
 \- Logistic regression experiment
 
 ```bash  
-python src/experiments/train\_model\_logistic\_regression.py \<ratings\_csv\> \<out\_model\>  
+python src/experiments/train_model_logistic_regression.py <ratings_csv> <out_model>  
 ```
 
 **Inference**  
