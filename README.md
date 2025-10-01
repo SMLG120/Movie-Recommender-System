@@ -92,7 +92,7 @@ Load a saved model programmatically:
 
 ```python  
 import joblib  
-model \= joblib.load('src/models/xgb_recommender.joblib')  
+model = joblib.load('src/models/xgb_recommender.joblib')  
 ```
 
 ### Ethical Considerations
