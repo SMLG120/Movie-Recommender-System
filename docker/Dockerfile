@@ -1,16 +1,24 @@
-FROM python:3.9-slim-bullseye
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Copy the requirements file and install the dependencies
-COPY requirements.txt requirements.txt
+# Minimal system deps; libgomp1 is needed at runtime for xgboost openmp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps first for caching
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your application code into the container
+# Copy your app
 COPY . .
 
-# Expose the port your service will run on
-EXPOSE 8082
+# Use the correct port your service listens on (8080 in your logs)
+EXPOSE 8080
 
-# Command to start your inference service
+# Start the service (adjust path if your app lives in src/)
 CMD ["python", "src/app.py"]

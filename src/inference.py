@@ -7,7 +7,7 @@ import numpy as np
 from feature_builder import FeatureBuilder
 
 class RecommenderEngine:
-    def __init__(self, model_path="src/models/xgb_recommender.joblib", movies_file="data/raw_data/movies.csv", repo_id=None, mode='prod'):
+    def __init__(self, model_path="models/xgb_recommender.joblib", movies_file="../data/raw_data/movies.csv", repo_id=None, mode='prod'):
         """Initialize service by loading model and movies data"""
         if mode != 'dev' and repo_id is not None:
             from huggingface_hub import hf_hub_download
@@ -39,6 +39,7 @@ class RecommenderEngine:
         movies["user_id"] = user_data["user_id"]
         movies.rename(columns={"id": "movie_id"}, inplace=True)
         movies = movies.merge(user_df, on="user_id", how="left")
+        movies = movies.sample(frac=1).reset_index(drop=True) #shuffle
 
         return movies
 
@@ -58,7 +59,7 @@ class RecommenderEngine:
         top_movies = candidate_df.assign(pred_score=preds)
         top_movies = top_movies.sort_values("pred_score", ascending=False).head(top_n)
 
-        return ",".join(top_movies["movie_id"].tolist())
+        return ", ".join(top_movies["movie_id"].tolist())
 
 
 if __name__ == "__main__":
