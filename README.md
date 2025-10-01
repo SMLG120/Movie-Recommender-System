@@ -29,15 +29,16 @@ This project implements a movie recommendation system for a simulated streaming 
 ### Quick start
 
 1\. Create and activate a virtual environment and install dependencies:  
-\`\`\`bash  
+```bash  
 **create virtual environment**  
 python3 \-m venv .venv  
 source .venv/bin/activate
-
+```
 **upgrade pip and install requirements**  
+```bash
 pip install \--upgrade pip  
 pip install \-r requirements.txt  
-\`\`\`
+```
 
 2\. Prepare data. Place the raw CSVs under \`data/raw\_data/\` if they aren't already present. See \`src/download\_data.py\` for helper utilities.
 
@@ -45,42 +46,42 @@ pip install \-r requirements.txt
 
 **Train the default pipeline:**
 
-\`\`\`bash  
+```bash  
 source .venv/bin/activate  
 python src/trainer.py  
-\`\`\`
+```
 
 **Run experiment scripts** 
 
 The scripts under \`src/experiments/\` are small, training/analysis scripts that evaluates the performance of different models. They require command-line arguments; here are the exact usages that the scripts expect:
 
 \- XGBoost experiment  
-\`\`\`bash  
+```bash  
 python src/experiments/train\_model\_xgb.py \<ratings\_csv\> \<out\_model\>  
-\`\`\`
+```
 
 \- MLP experiment 
 
-\`\`\`bash  
+```bash  
 python src/experiments/train\_model\_mlp.py \<ratings\_csv\> \<out\_model\>  
-\`\`\`
+```
 
 \- Logistic regression experiment
 
-\`\`\`bash  
+```bash  
 python src/experiments/train\_model\_logistic\_regression.py \<ratings\_csv\> \<out\_model\>  
-\`\`\`
+```
 
 **Inference**  
 \`src/inference.py\` includes a small \`RecommenderEngine\` class and a runnable example in the \`if \_\_name\_\_ \== "\_\_main\_\_"\` block. Current behaviour:
 
 \- Running \`python src/inference.py\` will load the model at \`src/models/xgb\_recommender.joblib\` (default path), read \`data/raw\_data/movies.csv\` for movie metadata, and run a hard-coded example (user\_id 13262\) — it prints a comma-separated list of recommended \`movie\_id\`s.
 
-\`\`\`python  
+```python  
 from src.inference import RecommenderEngine  
 engine \= RecommenderEngine(model\_path='src/models/xgb\_recommender.joblib', movies\_file='data/raw\_data/movies.csv', mode='dev')  
 print(engine.recommend(12345, top\_n=10))  
-\`\`\`
+```
 
 ### Models & artifacts
 
@@ -89,10 +90,10 @@ print(engine.recommend(12345, top\_n=10))
 
 Load a saved model programmatically:
 
-\`\`\`python  
+```python  
 import joblib  
 model \= joblib.load('src/models/xgb\_recommender.joblib')  
-\`\`\`
+```
 
 ### Ethical Considerations
 
