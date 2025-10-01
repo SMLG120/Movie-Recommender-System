@@ -94,7 +94,15 @@ Load a saved model programmatically:
 import joblib  
 model = joblib.load('src/models/xgb_recommender.joblib')  
 ```
+## Docker
 
+Build and run a container using the provided Dockerfile:
+
+```bash
+docker build -f docker/Dockerfile -t movie-recommender:v1.0 .
+# Example run (with log rotation limits and port mapping):
+docker run -it --log-opt max-size=50m --log-opt max-file=5 -p 8080:8080 movie-recommender:v1.0
+```
 ### Ethical Considerations
 
 As a team, we have acknowledged the existence of ethical issues in this project and have made efforts to minimize them. For the data gathered, we have ensured that no personally identifiable information (PII) is collected or shared beyond what is provided in the simulated dataset. Furthermore, we recognize that recommendation algorithms can amplify existing popularity biases; therefore, this project is intended solely for the evaluation of the Comp585 project and it is not intended for deployment in real-world systems.
