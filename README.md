@@ -9,10 +9,10 @@ This project implements a movie recommendation system for a simulated streaming 
 ### Project Structure
 
 \- \`src/\` — source code: data download, feature building, training, inference, experiment scripts  
-\- \`data/\` — prepared data, id lists, and \`raw\_data/\` with original CSVs  
+\- \`data/\` — prepared data, id lists, and \`raw_data/\` with original CSVs  
 \- \`models/\` — saved trained models  
 \- \`reports/\` — report write-ups and meeting notes  
-\- \`train\_results/\` — JSON results from training and hyperparameter tuning  
+\- \`train_results/\` — JSON results from training and hyperparameter tuning  
 \- \`docker/\` — \`Dockerfile\` for containerizing the project
 
 ### Key files:
@@ -31,16 +31,16 @@ This project implements a movie recommendation system for a simulated streaming 
 1\. Create and activate a virtual environment and install dependencies:  
 ```bash  
 **create virtual environment**  
-python3 \-m venv .venv  
+python3 -m venv .venv  
 source .venv/bin/activate
 ```
 **upgrade pip and install requirements**  
 ```bash
-pip install \--upgrade pip  
-pip install \-r requirements.txt  
+pip install --upgrade pip  
+pip install -r requirements.txt  
 ```
 
-2\. Prepare data. Place the raw CSVs under \`data/raw\_data/\` if they aren't already present. See \`src/download\_data.py\` for helper utilities.
+2\. Prepare data. Place the raw CSVs under \`data/raw_data/\` if they aren't already present. See \`src/download_data.py\` for helper utilities.
 
 ### How to Run
 
@@ -73,26 +73,26 @@ python src/experiments/train_model_logistic_regression.py <ratings_csv> <out_mod
 ```
 
 **Inference**  
-\`src/inference.py\` includes a small \`RecommenderEngine\` class and a runnable example in the \`if \_\_name\_\_ \== "\_\_main\_\_"\` block. Current behaviour:
+\`src/inference.py\` includes a small \`RecommenderEngine\` class and a runnable example in the \`if __name__ == "__main__"\` block. Current behaviour:
 
-\- Running \`python src/inference.py\` will load the model at \`src/models/xgb\_recommender.joblib\` (default path), read \`data/raw\_data/movies.csv\` for movie metadata, and run a hard-coded example (user\_id 13262\) — it prints a comma-separated list of recommended \`movie\_id\`s.
+\- Running \`python src/inference.py\` will load the model at \`src/models/xgb\_recommender.joblib\` (default path), read \`data/raw_data/movies.csv\` for movie metadata, and run a hard-coded example (user_id 13262\) — it prints a comma-separated list of recommended \`movie_id\`s.
 
 ```python  
 from src.inference import RecommenderEngine  
-engine \= RecommenderEngine(model\_path='src/models/xgb\_recommender.joblib', movies\_file='data/raw\_data/movies.csv', mode='dev')  
-print(engine.recommend(12345, top\_n=10))  
+engine = RecommenderEngine(model_path='src/models/xgb_recommender.joblib', movies_file='data/raw_data/movies.csv', mode='dev')  
+print(engine.recommend(12345, top_n=10))  
 ```
 
 ### Models & artifacts
 
-\- Trained models: \`src/models/\` (e.g., \`xgb\_recommender.joblib\`, \`xgb\_recommender.pkl\`)  
-\- Training/tuning outputs: \`src/train\_results/\` (JSON files)
+\- Trained models: \`src/models/\` (e.g., \`xgb_recommender.joblib\`, \`xgb_recommender.pkl\`)  
+\- Training/tuning outputs: \`src/train_results/\` (JSON files)
 
 Load a saved model programmatically:
 
 ```python  
 import joblib  
-model \= joblib.load('src/models/xgb\_recommender.joblib')  
+model \= joblib.load('src/models/xgb_recommender.joblib')  
 ```
 
 ### Ethical Considerations
