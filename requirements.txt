@@ -12,3 +12,6 @@ kafka-python
 tensorflow
 psutil
 scipy==1.9.3
+# added for testing
+pytest
+pytest-cov
