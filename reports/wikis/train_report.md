@@ -25,11 +25,6 @@ Performance is modest (RMSE ≈ 0.72, R² ≈ 0.08), which is expected since con
 The strength of this baseline lies in its ability to handle **cold-start cases** (new users/movies) where only metadata is available. However, for stronger personalization and accuracy, further integration of collaborative filtering signals will be needed.
 
 
-## Interpretation
-- The **MAE of 0.58** means predictions are, on average, within ~0.6 stars of the true rating.  
-- **RMSE ~0.72** suggests small but consistent deviations from actual ratings.  
-- **R² remains low (0.08)**, which is expected in recommender settings since ratings are highly subjective and noisy. Even a small positive R² indicates the model captures signal beyond predicting the mean rating.  
-
 ## Observations
 - Performance is decent for a first-pass model.  
 - R² is a limited metric here; RMSE/MAE are better indicators of quality.  

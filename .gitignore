@@ -12,12 +12,14 @@ venv/
 .venv/
 env/
 .env
+.sh
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+.gitkeep
 
 # OS files
 .DS_Store
@@ -32,3 +34,5 @@ Thumbs.db
 
 # Log files
 *.log
+data/raw_data/movies/
+*_xx.py
