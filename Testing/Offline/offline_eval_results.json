@@ -1,23 +1,23 @@
 {
   "meta": {
-    "input": "Data/training_data.csv",
-    "k": 10,
-    "neg_samples": 50,
+    "input": "c:\\COMP585\\Team6\\team-6\\Testing\\Offline\\..\\..\\Data/training_data.csv",
+    "k": 20,
+    "neg_samples": 500,
     "n_jobs": 4,
     "batch_size": 100
   },
   "results": {
     "pop": {
-      "hit": 0.4262502880848122,
-      "precision": 0.042625028808481215,
-      "recall": 0.4262502880848122,
-      "ndcg": 0.3576944289938779
+      "hit": 0.4270569255588845,
+      "precision": 0.02135284627794423,
+      "recall": 0.4270569255588845,
+      "ndcg": 0.3143221727439725
     },
     "item_item": {
-      "hit": 0.019474533302604288,
-      "precision": 0.0019474533302604284,
-      "recall": 0.019474533302604288,
-      "ndcg": 0.01715959647943611
+      "hit": 0.019244065452869323,
+      "precision": 0.0009622032726434664,
+      "recall": 0.019244065452869323,
+      "ndcg": 0.01616002384025313
     }
   }
 }

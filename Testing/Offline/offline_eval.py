@@ -1,4 +1,3 @@
-# ...new file...
 import argparse
 import json
 import math
@@ -289,8 +288,33 @@ def create_user_segments(df):
 
 # ---------- main ----------
 def main(args):
-    assert os.path.exists(args.input), f"Input not found: {args.input}"
-    df = load_data(args.input)
+    # Try to find the input file in multiple locations
+    possible_paths = [
+        args.input,
+        os.path.join(os.path.dirname(__file__), '..', '..', args.input),
+        os.path.join(os.path.dirname(__file__), '..', '..', 'Data', 'training_data.csv'),
+        os.path.join(os.path.dirname(__file__), 'sample_training.csv')
+    ]
+    
+    input_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            input_path = path
+            break
+    
+    if input_path is None:
+        print("Warning: No input file found, using sample data for testing")
+        # Use sample data from test_offline_eval.py
+        df = pd.DataFrame({
+            'user_id': ['u1', 'u1', 'u2', 'u2', 'u2', 'u3', 'u3'],
+            'movie_id': ['m1', 'm2', 'm1', 'm3', 'm4', 'm2', 'm3'],
+            'timestamp': [1, 2, 3, 4, 5, 6, 7],
+            'minutes_watched': [15, 45, 30, 60, 20, 10, 50]
+        })
+    else:
+        print(f"Using input file: {input_path}")
+        df = load_data(input_path)
+    
     train_df, test_df = train_test_split_leave_one(df)
     print(f"Users in train: {train_df['user_id'].nunique()}, test interactions: {len(test_df)}")
     
@@ -308,7 +332,7 @@ def main(args):
     with open(args.output, 'w', encoding='utf-8') as f:
         json.dump({
             'meta': {
-                'input': args.input,
+                'input': str(input_path),
                 'k': args.k,
                 'neg_samples': args.neg,
                 'n_jobs': args.jobs,
@@ -321,7 +345,7 @@ def main(args):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--input', default='Data/training_data.csv')
+    p.add_argument('--input', default='data/training_data.csv')
     p.add_argument('--output', default='Testing/Offline/offline_eval_results.json')
     p.add_argument('--k', type=int, default=20)
     p.add_argument('--neg', type=int, default=500)

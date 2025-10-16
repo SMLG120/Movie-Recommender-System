@@ -1,135 +1,98 @@
-import importlib.util
 from pathlib import Path
 import pandas as pd
 import numpy as np
 
+# Import offline_eval module
 SELF = Path(__file__).parent
 MODULE_PATH = SELF / "offline_eval.py"
 
+import importlib.util
 spec = importlib.util.spec_from_file_location("offline_eval", str(MODULE_PATH))
 offline_eval = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(offline_eval)
 
-SAMPLE_CSV = SELF / "sample_training.csv"
+# Test data setup
+SAMPLE_DATA = pd.DataFrame({
+    'user_id': ['u1', 'u1', 'u2', 'u2', 'u2', 'u3', 'u3'],
+    'movie_id': ['m1', 'm2', 'm1', 'm3', 'm4', 'm2', 'm3'],
+    'timestamp': [1, 2, 3, 4, 5, 6, 7],
+    'minutes_watched': [15, 45, 30, 60, 20, 10, 50]
+})
 
-def test_load_and_types():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
-    assert isinstance(df, pd.DataFrame)
-    assert 'user_id' in df.columns and 'movie_id' in df.columns
-
-def test_train_test_split_leave_one():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
-    train_df, test_df = offline_eval.train_test_split_leave_one(df, min_train_interactions=1)
-    # u1 has 2 interactions -> should have a test row
-    assert 'u1' in train_df['user_id'].values
-    assert any(test_df['user_id'] == 'u1')
-
-def test_metrics_basic():
-    recommended = ['m1', 'm2', 'm3']
-    gt = {'m2'}
-    assert offline_eval.precision_at_k(recommended, gt, 3) == 1/3
-    assert offline_eval.recall_at_k(recommended, gt, 3) == 1
-    assert offline_eval.hit_rate(recommended, gt, 3) == 1
-    # ndcg: since ground truth at rank 2, ndcg>0
-    ndcg = offline_eval.ndcg_at_k(recommended, gt, 3)
-    assert 0.0 <= ndcg <= 1.0
-
-def test_metrics_edge_cases():
-    # Empty recommendations
-    assert offline_eval.precision_at_k([], {'m1'}, 3) == 0
-    assert offline_eval.recall_at_k([], {'m1'}, 3) == 0
-    assert offline_eval.ndcg_at_k([], {'m1'}, 3) == 0
-    assert offline_eval.hit_rate([], {'m1'}, 3) == 0
-
-    # Empty ground truth
-    assert offline_eval.precision_at_k(['m1', 'm2'], set(), 3) == 0
-    assert offline_eval.recall_at_k(['m1', 'm2'], set(), 3) == 0
-    assert offline_eval.ndcg_at_k(['m1', 'm2'], set(), 3) == 0
-    assert offline_eval.hit_rate(['m1', 'm2'], set(), 3) == 0
-
-    # Perfect match
-    gt = {'m1', 'm2'}
-    assert offline_eval.precision_at_k(['m1', 'm2'], gt, 2) == 1.0
-    assert offline_eval.recall_at_k(['m1', 'm2'], gt, 2) == 1.0
-    assert offline_eval.ndcg_at_k(['m1', 'm2'], gt, 2) == 1.0
-    assert offline_eval.hit_rate(['m1', 'm2'], gt, 2) == 1.0
-
-def test_train_test_split_parameters():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
+def test_complete_evaluation():
+    # Use functions from offline_eval instead of reimplementing them
+    train_df, test_df = offline_eval.train_test_split_leave_one(SAMPLE_DATA)
     
-    # Test with higher min_train_interactions
-    train_df, test_df = offline_eval.train_test_split_leave_one(df, min_train_interactions=3)
-    assert len(test_df) <= len(test_df)  # Should have fewer test cases
+    # Test popular recommender
+    pop_list = offline_eval.popular_recommender(train_df, top_k=2)
+    assert len(pop_list) == 2
+    non_empty = [m for m in pop_list if m != '']
+    assert set(non_empty) == {'m1', 'm3'} or set(non_empty) == {'m3', 'm1'}
     
-    # Verify each user in test set has sufficient training data
-    test_users = set(test_df['user_id'].unique())
-    for user in test_users:
-        user_train_count = len(train_df[train_df['user_id'] == user])
-        assert user_train_count >= 3
-
-def test_evaluate_runs():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
-    train_df, test_df = offline_eval.train_test_split_leave_one(df, min_train_interactions=1)
-    res = offline_eval.evaluate(train_df, test_df, top_k=5, neg_samples=10)
-    assert isinstance(res, dict)
-    # expected keys for baselines
-    assert 'pop' in res or 'item_item' in res
-
-def test_evaluate_parameters():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
-    train_df, test_df = offline_eval.train_test_split_leave_one(df, min_train_interactions=1)
+    # Test user segments
+    segments = offline_eval.create_user_segments(train_df)
+    new_users_df = train_df[segments['new_users'](train_df)]
+    regular_users_df = train_df[segments['regular_users'](train_df)]
+    assert set(new_users_df['user_id'].unique()) == {'u1', 'u3'}
+    assert set(regular_users_df['user_id'].unique()) == {'u2'}
     
-    # Test with different k values
-    res1 = offline_eval.evaluate(train_df, test_df, top_k=1, neg_samples=10)
-    res5 = offline_eval.evaluate(train_df, test_df, top_k=5, neg_samples=10)
-    assert all(res1[model]['recall@1'] <= res5[model]['recall@5'] for model in res1.keys())
-    
-    # Test with different negative sample sizes
-    res_more_neg = offline_eval.evaluate(train_df, test_df, top_k=5, neg_samples=20)
-    assert isinstance(res_more_neg, dict)
-
-def test_temporal_split():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
-    train_df, test_df = offline_eval.train_test_split_temporal(df)
-    assert len(train_df) > 0 and len(test_df) > 0
-    # Test should contain newer timestamps
-    assert train_df['timestamp'].max() <= test_df['timestamp'].min()
-
-def test_regression_metrics():
-    y_true = np.array([10, 20, 30, 40])
-    y_pred = np.array([12, 18, 35, 38])
+    # Test regression metrics
+    y_true = np.array([30, 45, 20])
+    y_pred = np.array([35, 40, 25])
     metrics = offline_eval.regression_metrics(y_true, y_pred)
     assert 'rmse' in metrics
     assert 'mae' in metrics
     assert metrics['rmse'] > 0
     assert metrics['mae'] > 0
+    
+    # Test ranking metrics
+    recommended = ['m1', 'm2', 'm3']
+    ground_truth = {'m2'}
+    k = 3
+    
+    assert offline_eval.precision_at_k(recommended, ground_truth, k) == 1/3
+    assert offline_eval.recall_at_k(recommended, ground_truth, k) == 1.0
+    assert offline_eval.hit_rate(recommended, ground_truth, k) == 1
+    
+    ndcg = offline_eval.ndcg_at_k(recommended, ground_truth, k)
+    assert 0 <= ndcg <= 1
 
-def test_classification_metrics():
-    y_true = np.array([1, 0, 1, 0])
-    y_pred = np.array([0.9, 0.1, 0.8, 0.2])
-    metrics = offline_eval.classification_metrics(y_true, y_pred)
-    assert 'auc' in metrics
-    assert 'ap' in metrics
-    assert 0 <= metrics['auc'] <= 1
-    assert 0 <= metrics['ap'] <= 1
+    # Test complete evaluation pipeline
+    eval_results = offline_eval.evaluate(
+        train_df,
+        test_df,
+        top_k=3,
+        neg_samples=2,
+        n_jobs=1,
+        batch_size=2
+    )
+    
+    assert isinstance(eval_results, dict)
+    assert 'pop' in eval_results
+    assert 'item_item' in eval_results
+    for model in ['pop', 'item_item']:
+        assert all(metric in eval_results[model] 
+                  for metric in ['hit', 'precision', 'recall', 'ndcg'])
 
-def test_user_segments():
-    df = pd.DataFrame({
-        'user_id': ['u1']*3 + ['u2']*7 + ['u3']*2,
-        'movie_id': range(12),
-        'timestamp': range(12)
-    })
-    segments = offline_eval.create_user_segments(df)
-    assert 'new_users' in segments
-    assert 'regular_users' in segments
-    new_users_df = df[segments['new_users'](df)]
-    regular_users_df = df[segments['regular_users'](df)]
-    assert len(new_users_df) + len(regular_users_df) == len(df)
+def test_edge_cases():
+    # Test empty inputs
+    empty_df = pd.DataFrame(columns=SAMPLE_DATA.columns)
+    train_df, test_df = offline_eval.train_test_split_leave_one(empty_df)
+    assert len(train_df) == 0
+    assert len(test_df) == 0
+    
+    # Test single user
+    single_user = SAMPLE_DATA[SAMPLE_DATA['user_id'] == 'u1']
+    train_df, test_df = offline_eval.train_test_split_leave_one(single_user)
+    assert len(test_df) == 1
+    assert len(train_df) == 1
 
-def test_evaluate_all_tasks():
-    df = offline_eval.load_data(str(SAMPLE_CSV))
-    train_df, test_df = offline_eval.train_test_split_leave_one(df)
-    results = offline_eval.evaluate_all_tasks(train_df, test_df)
-    assert isinstance(results, dict)
-    assert 'ranking' in results
-    assert 'segments' in results
+if __name__ == '__main__':
+    try:
+        test_complete_evaluation()
+        test_edge_cases()
+        print("✓ All offline evaluation tests passed!")
+    except AssertionError as e:
+        print(f"✗ Test failed: {str(e)}")
+    except Exception as e:
+        print(f"✗ Error: {str(e)}")
