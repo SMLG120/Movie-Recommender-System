@@ -30,6 +30,15 @@ class FeatureBuilder:
             df = df_override.copy()
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
+        
+        # --- Coerce Types ---
+        for c in ["age", "runtime", "popularity", "vote_average", "vote_count"]:
+            if c in df.columns:
+                df[c] = pd.to_numeric(df[c], errors="coerce")
+        for c in ["age_bin","occupation","gender","original_language"]:
+            if c not in df.columns:
+                df[c] = "unknown"
+            df[c] = df[c].astype(str)
 
         # --- Handle Missing Values ---
         df["age"] = df["age"].fillna(df["age"].median())
@@ -52,6 +61,32 @@ class FeatureBuilder:
             bins=[0, 18, 25, 35, 50, 100],
             labels=["0-18", "19-25", "26-35", "36-50", "50+"]
         )
+        # Ensure keys
+        if "user_id" not in df:  df["user_id"] = -1
+        if "movie_id" not in df: df["movie_id"] = df.get("id", -1)
+
+        # --- Light outlier checks ---
+        # keeps data, just clips into valid ranges and prints a summary
+        def _clip_with_flag(s, low=None, high=None, name="col"):
+            orig = s.copy()
+            if low is not None:  s = s.clip(lower=low)
+            if high is not None: s = s.clip(upper=high)
+            clipped = (orig != s).sum()
+            if clipped:
+                total = len(s)
+                pct = 100.0 * clipped / total
+                print(f"[INFO] clipped {name}: {clipped}/{total} ({pct:.2f}%)")
+            else:
+                print("no clipping needed for", name)
+            return s
+    
+        print("[INFO] Outlier clipping summary:")
+        if "age" in df: df["age"] = _clip_with_flag(df["age"], 5, 100, "age")
+        if "runtime" in df: df["runtime"] = _clip_with_flag(df["runtime"], 30, 300, "runtime")
+        if "vote_count" in df: df["vote_count"] = _clip_with_flag(df["vote_count"], 0, None, "vote_count")
+        if "release_year" in df:
+            this_year = pd.Timestamp.now().year
+            df["release_year"] = _clip_with_flag(df["release_year"], 1900, this_year + 1, "release_year")
 
         # Genres multi-hot (keep as binary features)
         for g in df["genres"].dropna().unique():
@@ -82,7 +117,7 @@ class FeatureBuilder:
         all_langs = sorted({lang for langs in df["normalized_langs"] for lang in langs})
         for lang in all_langs:
             df[f"lang_{lang}"] = df["normalized_langs"].apply(lambda x: int(lang in x))
-
+        
         # Final selection
         base_cols = [
             "user_id", "age", "age_bin", "occupation", "gender",
