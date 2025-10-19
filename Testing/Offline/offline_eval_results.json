@@ -1,10 +1,11 @@
 {
   "meta": {
-    "input": "c:\\COMP585\\Team6\\team-6\\Testing\\Offline\\..\\..\\Data/training_data.csv",
+    "input": "c:\\COMP585\\Team6\\team-6\\Testing\\Offline\\..\\..\\data/training_data.csv",
     "k": 20,
     "neg_samples": 500,
     "n_jobs": 4,
-    "batch_size": 100
+    "batch_size": 100,
+    "sample_size": 0
   },
   "results": {
     "pop": {

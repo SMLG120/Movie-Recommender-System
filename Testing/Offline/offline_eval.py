@@ -58,29 +58,63 @@ def classification_metrics(y_true, y_pred_proba):
 
 # ---------- data load & checks ----------
 def load_data(path):
-    df = pd.read_csv(path)
-    # expected: user_id, movie_id, rating (optional), timestamp (optional)
-    if 'timestamp' not in df.columns:
-        # preserve file order as pseudo-time
-        df['timestamp'] = np.arange(len(df))
-    df = df.dropna(subset=['user_id', 'movie_id'])
-    # ensure string ids
-    df['user_id'] = df['user_id'].astype(str)
-    df['movie_id'] = df['movie_id'].astype(str)
-    return df
+    """Load and validate data with progress information"""
+    print(f"Reading CSV file from {path}...")
+    try:
+        df = pd.read_csv(path)
+        print(f"Loaded {len(df)} rows and {len(df.columns)} columns")
+        
+        # Data validation
+        required_cols = ['user_id', 'movie_id']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+        
+        # Handle timestamp
+        if 'timestamp' not in df.columns:
+            print("No timestamp column found, creating sequential timestamps...")
+            df['timestamp'] = np.arange(len(df))
+        
+        # Clean and convert IDs
+        print("Cleaning data...")
+        df = df.dropna(subset=['user_id', 'movie_id'])
+        df['user_id'] = df['user_id'].astype(str)
+        df['movie_id'] = df['movie_id'].astype(str)
+        
+        print(f"Final dataset: {len(df)} interactions, "
+              f"{df['user_id'].nunique()} users, "
+              f"{df['movie_id'].nunique()} movies")
+        return df
+        
+    except Exception as e:
+        print(f"Error loading data: {str(e)}")
+        raise
 
 def train_test_split_leave_one(df, min_train_interactions=1):
+    """Split data with progress information"""
+    print("Performing leave-one-out split...")
+    print(f"Minimum training interactions per user: {min_train_interactions}")
+    
     df = df.sort_values('timestamp')
     train_parts = []
     test_parts = []
-    for uid, g in df.groupby('user_id'):
+    
+    # Use tqdm for progress bar
+    for uid, g in tqdm(df.groupby('user_id'), desc="Splitting users"):
         if len(g) <= min_train_interactions:
             train_parts.append(g)
             continue
         test_parts.append(g.tail(1))
         train_parts.append(g.iloc[:-1])
+    
     train_df = pd.concat(train_parts).reset_index(drop=True)
     test_df = pd.concat(test_parts).reset_index(drop=True) if test_parts else pd.DataFrame(columns=df.columns)
+    
+    # Ensure unique index spaces
+    train_df.index = range(len(train_df))
+    test_df.index = range(len(train_df), len(train_df) + len(test_df))
+    
+    print(f"Split complete: {len(train_df)} training interactions, {len(test_df)} test interactions")
     return train_df, test_df
 
 def train_test_split_temporal(df, test_ratio=0.2):
@@ -198,7 +232,7 @@ def evaluate_batch(args):
     
     return results
 
-def evaluate(train_df, test_df, top_k=20, neg_samples=500, n_jobs=4, batch_size=100):
+def evaluate(train_df, test_df, top_k=20, neg_samples=500, n_jobs=4, batch_size=100, parallel=True):
     """Memory-efficient parallel evaluation"""
     pop_list = popular_recommender(train_df, top_k=2000)
     
@@ -226,8 +260,12 @@ def evaluate(train_df, test_df, top_k=20, neg_samples=500, n_jobs=4, batch_size=
         ]
         
         # Process batches in parallel
-        with Pool(n_jobs) as pool:
-            batch_results = list(pool.imap(evaluate_batch, eval_args))
+        if parallel:
+            with Pool(n_jobs) as pool:
+                batch_results = list(pool.imap(evaluate_batch, eval_args))
+        else:
+            batch_results = [evaluate_batch(a) for a in eval_args]
+
         
         # Combine results from batches
         for batch_res in batch_results:
@@ -242,14 +280,14 @@ def evaluate(train_df, test_df, top_k=20, neg_samples=500, n_jobs=4, batch_size=
     
     return agg
 
-def evaluate_user_segments(train_df, test_df, segments, top_k=20):
+def evaluate_user_segments(train_df, test_df, segments, top_k=20, parallel=True):
     """Evaluate performance across different user segments"""
     results = {}
     for segment_name, segment_filter in segments.items():
         segment_test = test_df[segment_filter(test_df)]
         if len(segment_test) == 0:
             continue
-        res = evaluate(train_df, segment_test, top_k=top_k)
+        res = evaluate(train_df, segment_test, top_k=top_k, parallel=parallel)
         results[segment_name] = res
     return results
 
@@ -288,23 +326,9 @@ def create_user_segments(df):
 
 # ---------- main ----------
 def main(args):
-    # Try to find the input file in multiple locations
-    possible_paths = [
-        args.input,
-        os.path.join(os.path.dirname(__file__), '..', '..', args.input),
-        os.path.join(os.path.dirname(__file__), '..', '..', 'Data', 'training_data.csv'),
-        os.path.join(os.path.dirname(__file__), 'sample_training.csv')
-    ]
-    
-    input_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            input_path = path
-            break
-    
-    if input_path is None:
-        print("Warning: No input file found, using sample data for testing")
-        # Use sample data from test_offline_eval.py
+    # Add data validation and progress reporting
+    if args.dev:
+        print("Running in development mode with sample data...")
         df = pd.DataFrame({
             'user_id': ['u1', 'u1', 'u2', 'u2', 'u2', 'u3', 'u3'],
             'movie_id': ['m1', 'm2', 'm1', 'm3', 'm4', 'm2', 'm3'],
@@ -312,44 +336,81 @@ def main(args):
             'minutes_watched': [15, 45, 30, 60, 20, 10, 50]
         })
     else:
-        print(f"Using input file: {input_path}")
+        # Try to find the input file in multiple locations
+        possible_paths = [
+            args.input,
+            os.path.join(os.path.dirname(__file__), '..', '..', args.input),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'Data', 'training_data.csv'),
+            os.path.join(os.path.dirname(__file__), 'sample_training.csv')
+        ]
+        
+        print("Searching for input file...")
+        input_path = None
+        for path in possible_paths:
+            print(f"Trying path: {path}")
+            if os.path.exists(path):
+                input_path = path
+                break
+        
+        if input_path is None:
+            print("No input file found. Available paths were:")
+            for path in possible_paths:
+                print(f" - {path}")
+            raise FileNotFoundError("No input file found")
+        
+        print(f"\nFound input file: {input_path}")
         df = load_data(input_path)
-    
+        
+        if args.sample > 0:
+            print(f"\nSampling {args.sample} users...")
+            sampled_users = np.random.choice(df['user_id'].unique(), size=args.sample, replace=False)
+            df = df[df['user_id'].isin(sampled_users)]
+            print(f"Sampled data size: {len(df)} interactions")
+
+    print("\nPreparing evaluation...")
     train_df, test_df = train_test_split_leave_one(df)
     print(f"Users in train: {train_df['user_id'].nunique()}, test interactions: {len(test_df)}")
     
     # Use smaller batch size and fewer negative samples by default
+    print("\nStarting evaluation...")
+    print(f"Parameters: top_k={args.k}, neg_samples={min(args.neg, 100)}, jobs={args.jobs}, batch_size={min(args.batch_size, 1000)}")
+    
     res = evaluate(
         train_df, 
         test_df, 
         top_k=args.k, 
         neg_samples=min(args.neg, 100),  # Limit negative samples
         n_jobs=args.jobs,
-        batch_size=min(args.batch_size, 1000)  # Limit batch size
+        batch_size=min(args.batch_size, 1000),  # Limit batch size
+        parallel=not args.no_parallel  # Allow disabling parallel processing
     )
     
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, 'w', encoding='utf-8') as f:
         json.dump({
             'meta': {
-                'input': str(input_path),
+                'input': str(input_path) if not args.dev else 'sample_data',
                 'k': args.k,
                 'neg_samples': args.neg,
                 'n_jobs': args.jobs,
-                'batch_size': args.batch_size
+                'batch_size': args.batch_size,
+                'sample_size': args.sample if not args.dev else 0
             },
             'results': res
         }, f, indent=2)
-    print(f"Saved results to {args.output}")
+    print(f"\nSaved results to {args.output}")
     print(json.dumps(res, indent=2))
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--input', default='data/training_data.csv')
-    p.add_argument('--output', default='Testing/Offline/offline_eval_results.json')
+    p.add_argument('--output', default='offline_eval_results.json')
     p.add_argument('--k', type=int, default=20)
     p.add_argument('--neg', type=int, default=500)
     p.add_argument('--jobs', type=int, default=4, help='Number of parallel jobs')
     p.add_argument('--batch_size', type=int, default=100, help='Batch size for parallel processing')
+    p.add_argument('--sample', type=int, default=0, help='Number of users to sample (0=all)')
+    p.add_argument('--dev', action='store_true', help='Run in development mode with sample data')
+    p.add_argument('--no-parallel', action='store_true', help='Disable parallel processing')
     args = p.parse_args()
     main(args)

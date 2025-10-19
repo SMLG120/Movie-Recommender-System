@@ -1,0 +1,40 @@
+image: python:3.11
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+cache:
+  paths:
+    - .pip-cache/
+    - venv/
+
+stages:
+  - test
+  - evaluation
+
+before_script:
+  - python -V
+  - python -m venv venv
+  - source venv/bin/activate
+  - pip install -r requirements.txt
+
+test_offline:
+  stage: test
+  script:
+    - python -m pytest Testing/Offline/test_offline_eval.py -v
+
+test_online:
+  stage: test
+  script:
+    - python -m pytest Testing/Online/test_online_eval.py -v
+
+evaluate_models:
+  stage: evaluation
+  script:
+    - python Testing/Offline/offline_eval.py --input data/training_data.csv
+  artifacts:
+    paths:
+      - Testing/Offline/offline_eval_results.json
+    expire_in: 1 week
+  only:
+    - main

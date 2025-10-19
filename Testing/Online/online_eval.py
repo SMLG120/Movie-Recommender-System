@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime
 import json
 import os
+from collections import defaultdict
 
 class OnlineEvaluator:
     def __init__(self, log_path='logs/online_metrics.json'):
@@ -11,7 +12,10 @@ class OnlineEvaluator:
             'response_times': [],
             'recommendations': [],
             'user_interactions': [],
-            'watch_times': []
+            'watch_times': [],
+            'errors': [],
+            'model_versions': [],
+            'recommendation_quality': []
         }
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
     
@@ -41,26 +45,75 @@ class OnlineEvaluator:
             self.metrics['watch_times'].append(watch_time)
         self._save_metrics()
     
+    def log_error(self, error_type, error_message):
+        """Log error events"""
+        event = {
+            'timestamp': datetime.now().isoformat(),
+            'type': error_type,
+            'message': error_message
+        }
+        self.metrics['errors'].append(event)
+        self._save_metrics()
+    
+    def log_model_deployment(self, model_version, model_type):
+        """Log model deployment events"""
+        event = {
+            'timestamp': datetime.now().isoformat(),
+            'version': model_version,
+            'type': model_type
+        }
+        self.metrics['model_versions'].append(event)
+        self._save_metrics()
+    
+    def log_recommendation_quality(self, user_id, recommended_items, selected_item, satisfaction_score):
+        """Log recommendation quality metrics"""
+        event = {
+            'timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'recommendations': recommended_items,
+            'selected': selected_item,
+            'satisfaction': satisfaction_score
+        }
+        self.metrics['recommendation_quality'].append(event)
+        self._save_metrics()
+    
     def compute_online_metrics(self, window_hours=24):
-        """Compute metrics for recent data"""
+        """Enhanced metrics computation"""
         now = datetime.now()
-        recent_recs = [r for r in self.metrics['recommendations'] 
-                      if (now - datetime.fromisoformat(r['timestamp'])).total_seconds() < window_hours * 3600]
+        window_start = now - timedelta(hours=window_hours)
         
-        recent_interactions = [i for i in self.metrics['user_interactions']
-                             if (now - datetime.fromisoformat(i['timestamp'])).total_seconds() < window_hours * 3600]
+        # Filter recent data
+        recent_data = {
+            key: [
+                event for event in events
+                if datetime.fromisoformat(event['timestamp']) > window_start
+            ]
+            for key, events in self.metrics.items()
+        }
         
-        if not recent_recs or not recent_interactions:
+        if not recent_data['recommendations']:
             return {}
         
-        metrics = {
+        basic_metrics = {
             'avg_response_time': np.mean(self.metrics['response_times'][-1000:]),
             'p95_response_time': np.percentile(self.metrics['response_times'][-1000:], 95),
-            'interaction_rate': len(recent_interactions) / len(recent_recs),
+            'interaction_rate': len(recent_data['user_interactions']) / len(recent_data['recommendations']),
             'avg_watch_time': np.mean(self.metrics['watch_times'][-1000:]) if self.metrics['watch_times'] else 0
         }
         
-        return metrics
+        # Add error rate
+        error_rate = len(recent_data['errors']) / len(recent_data['recommendations'])
+        basic_metrics['error_rate'] = error_rate
+        
+        # Add recommendation quality metrics
+        if recent_data['recommendation_quality']:
+            satisfaction_scores = [
+                event['satisfaction']
+                for event in recent_data['recommendation_quality']
+            ]
+            basic_metrics['avg_satisfaction'] = np.mean(satisfaction_scores)
+        
+        return basic_metrics
     
     def _save_metrics(self):
         """Save metrics to disk"""
