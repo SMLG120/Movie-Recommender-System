@@ -1,39 +1,48 @@
-import unittest
-from datetime import datetime, timedelta
-import numpy as np
-from online_eval import OnlineEvaluator
+# test_online_eval.py
+from online_eval import get_evaluator
+import time
 
-class TestOnlineEvaluator(unittest.TestCase):
-    def setUp(self):
-        self.evaluator = OnlineEvaluator(log_path='test_metrics.json')
+def main():
+    evaluator = get_evaluator()
     
-    def test_recommendation_logging(self):
-        self.evaluator.log_recommendation('u1', ['m1', 'm2'], 0.1)
-        metrics = self.evaluator.compute_online_metrics()
-        self.assertIn('avg_response_time', metrics)
-        self.assertEqual(metrics['avg_response_time'], 0.1)
+    # --- Log some recommendations ---
+    evaluator.log_recommendation(user_id="u1", recommended_items=["m1", "m2", "m3"], response_time=0.4)
+    evaluator.log_recommendation(user_id="u2", recommended_items=["m2", "m4"], response_time=0.6)
+    evaluator.log_recommendation(user_id="u3", recommended_items=["m5", "m1"], response_time=0.3)
     
-    def test_interaction_logging(self):
-        self.evaluator.log_interaction('u1', 'm1', 'watch', 30)
-        self.evaluator.log_interaction('u1', 'm2', 'skip', 0)
-        metrics = self.evaluator.compute_online_metrics()
-        self.assertIn('avg_watch_time', metrics)
-        self.assertEqual(metrics['avg_watch_time'], 30)
+    # --- Simulate user interactions ---
+    evaluator.log_interaction(user_id="u1", item_id="m2", action_type="click")
+    evaluator.log_interaction(user_id="u1", item_id="m4", action_type="click")
+    evaluator.log_interaction(user_id="u2", item_id="m2", action_type="watch", watch_time=20)
+    evaluator.log_interaction(user_id="u3", item_id="m5", action_type="watch", watch_time=15)
     
-    def test_time_window_filtering(self):
-        # Log old data
-        self.evaluator.metrics['recommendations'] = [{
-            'timestamp': (datetime.now() - timedelta(hours=25)).isoformat(),
-            'user_id': 'u1',
-            'items': ['m1', 'm2'],
-            'response_time': 0.1
-        }]
-        
-        # Log recent data
-        self.evaluator.log_recommendation('u2', ['m3', 'm4'], 0.2)
-        
-        metrics = self.evaluator.compute_online_metrics(window_hours=24)
-        self.assertEqual(len(metrics), 4)  # Should only include recent data
+    # --- Log a model deployment ---
+    evaluator.log_model_deployment("v1.0", "collaborative_filtering")
 
-if __name__ == '__main__':
-    unittest.main()
+    
+    # --- Log recommendation quality metrics ---
+    evaluator.log_recommendation_quality(
+        user_id="u1",
+        recommended_items=["m1", "m2", "m3"],
+        selected_item="m2",
+        satisfaction_score=0.8
+    )
+    
+    evaluator.log_recommendation_quality(
+        user_id="u2",
+        recommended_items=["m2", "m4"],
+        selected_item="m2",
+        satisfaction_score=1.0
+    )
+    
+    # --- Wait a few seconds to simulate real-time logging ---
+    time.sleep(1)
+    
+    # --- Compute current online metrics ---
+    metrics = evaluator.compute_online_metrics()
+    print("=== Online Metrics ===")
+    for k, v in metrics.items():
+        print(f"{k}: {v}")
+
+if __name__ == "__main__":
+    main()
