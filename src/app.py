@@ -8,6 +8,8 @@ from flask import Flask, Response
 import sys
 import os
 import logging
+import time
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
 
 # Set up import paths for Docker container
 sys.path.append('/app/src')
@@ -18,6 +20,32 @@ from inference import RecommenderEngine
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Define Metrics for Prometheus
+REQ_LAT = Histogram(
+    "api_request_seconds",
+    "Request latency by endpoint (seconds)",
+    ["endpoint"],
+    buckets=[0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
+)
+INF_LAT = Histogram(
+    "model_inference_seconds",
+    "Model inference latency (seconds)"
+)
+API_ERRORS = Counter(
+    "api_errors_total",
+    "5xx error count by endpoint",
+    ["endpoint"]
+)
+INPROG = Gauge(
+    "api_inprogress_requests",
+    "In-progress requests by endpoint",
+    ["endpoint"]
+)
+MODEL_READY = Gauge(
+    "model_ready",
+    "1 if model/engine is initialized, else 0"
+)
 
 app = Flask(__name__)
 recommender_engine = None
@@ -37,6 +65,7 @@ def initialize_recommender():
             mode='dev'
         )
         logger.info("RecommenderEngine initialized successfully")
+        MODEL_READY.set(1)
         return True
         
     except Exception as e:
@@ -47,21 +76,34 @@ def initialize_recommender():
 initialize_recommender()
 
 @app.route('/recommend/<int:user_id>', methods=['GET'])
-def recommend(user_id):
+def recommend(user_id: int):
     """Main recommendation endpoint - returns comma-separated movie IDs"""
+    ep = "/recommend"
+    INPROG.labels(ep).inc()
+    t0 = time.perf_counter()
     try:
         if recommender_engine is None:
-            # Fallback recommendations
-            fallback = ",".join([str(i) for i in range(1, 21)])
-            return Response(fallback, mimetype='text/plain')
-        
-        recommendations = recommender_engine.recommend(user_id, top_n=20)
-        return Response(recommendations, mimetype='text/plain')
-    
+            logger.warning("Engine not ready; returning fallback for user %s", user_id)
+            fallback = ",".join(str(i) for i in range(1, 21))
+            return Response(fallback, mimetype='text/plain'), 200
+
+        # measure pure inference latency
+        with INF_LAT.time():
+            recommendations = recommender_engine.recommend(user_id, top_n=20)
+
+        return Response(recommendations, mimetype='text/plain'), 200
+
     except Exception as e:
-        logger.error(f"Error for user {user_id}: {e}")
-        fallback = ",".join([str(i) for i in range(1, 21)])
-        return Response(fallback, mimetype='text/plain')
+        logger.exception("Error for user %s: %s", user_id, e)
+        API_ERRORS.labels(ep).inc()
+        # still return a fallback to stay available
+        fallback = ",".join(str(i) for i in range(1, 21))
+        return Response(fallback, mimetype='text/plain'), 200
+
+    finally:
+        REQ_LAT.labels(ep).observe(time.perf_counter() - t0)
+        INPROG.labels(ep).dec()
+
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -69,6 +111,11 @@ def health_check():
     status = "OK" if recommender_engine is not None else "Service Degraded"
     code = 200 if recommender_engine is not None else 503
     return Response(status, mimetype='text/plain'), code
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Prometheus scrape endpoint"""
+    return generate_latest(REGISTRY), 200, {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"}
 
 @app.route('/', methods=['GET'])
 def root():
