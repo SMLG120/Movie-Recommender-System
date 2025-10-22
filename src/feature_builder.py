@@ -7,11 +7,27 @@ warnings.filterwarnings("ignore")
 
 
 class FeatureBuilder:
-    def __init__(self, movies_file=None, ratings_file=None, users_file=None, mode="train"):
+    def __init__(self,
+                movies_file=None,
+                ratings_file=None,
+                users_file=None,
+                user_explicit_factors=None,
+                movie_explicit_factors=None,
+                user_implicit_factors=None,
+                movie_implicit_factors=None,
+                mode="train"):
+
         self.mode = mode
         self.movies = pd.read_csv(movies_file) if movies_file else None
         self.ratings = pd.read_csv(ratings_file) if ratings_file else None
         self.users = pd.read_csv(users_file) if users_file else None
+
+        # CF embeddings
+        self.user_explicit = pd.read_csv(user_explicit_factors) if user_explicit_factors else None
+        self.movie_explicit = pd.read_csv(movie_explicit_factors) if movie_explicit_factors else None
+        self.user_implicit = pd.read_csv(user_implicit_factors) if user_implicit_factors else None
+        self.movie_implicit = pd.read_csv(movie_implicit_factors) if movie_implicit_factors else None
+
         self.df = None
 
     def build(self, df_override=None):
@@ -53,7 +69,12 @@ class FeatureBuilder:
 
         # Release year
         df["release_year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
-        df["release_year"] = df["release_year"].fillna(-1).astype(int)
+
+        df["release_year"] = df["release_year"].fillna(
+                                        df["movie_id"].str.extract(r'(\d{4})$')[0].astype(float)
+                                    )
+
+        df["release_year"] = df["release_year"].fillna(df["release_year"].median())
 
         # Age binning
         df["age_bin"] = pd.cut(
@@ -82,13 +103,14 @@ class FeatureBuilder:
     
         print("[INFO] Outlier clipping summary:")
         if "age" in df: df["age"] = _clip_with_flag(df["age"], 5, 100, "age")
-        if "runtime" in df: df["runtime"] = _clip_with_flag(df["runtime"], 30, 300, "runtime")
+        if "runtime" in df: df["runtime"] = _clip_with_flag(df["runtime"], 30, 720, "runtime")
         if "vote_count" in df: df["vote_count"] = _clip_with_flag(df["vote_count"], 0, None, "vote_count")
         if "release_year" in df:
             this_year = pd.Timestamp.now().year
-            df["release_year"] = _clip_with_flag(df["release_year"], 1900, this_year + 1, "release_year")
+            df["release_year"] = _clip_with_flag(df["release_year"], 1500, this_year + 1, "release_year")
 
         # Genres multi-hot (keep as binary features)
+        df["genres"] = df["genres"].fillna("unknown")
         for g in df["genres"].dropna().unique():
             if not isinstance(g, str):
                 continue
@@ -98,6 +120,7 @@ class FeatureBuilder:
                     df[f"genre_{genre}"] = df["genres"].fillna("").str.contains(genre).astype(int)
 
         # Production countries multi-hot
+        df["production_countries"] = df["production_countries"].fillna("unknown")
         for c in df["production_countries"].dropna().unique():
             if not isinstance(c, str):
                 continue
@@ -113,6 +136,7 @@ class FeatureBuilder:
             langs = [l.strip() for l in lang_str.split(",") if l.strip()]
             return set([LANGUAGE_MAP.get(l, l) for l in langs])
 
+        df["spoken_languages"] = df["spoken_languages"].fillna(df["original_language"]) #fill missing with original_language
         df["normalized_langs"] = df["spoken_languages"].apply(normalize_languages)
         all_langs = sorted({lang for langs in df["normalized_langs"] for lang in langs})
         for lang in all_langs:
@@ -129,11 +153,34 @@ class FeatureBuilder:
             df = df.dropna(subset=["rating"])
             base_cols.append("rating")
 
+        def _safe_merge(base, other, on, prefix):
+            if other is None:
+                return base
+            # rename to avoid collisions
+            rename_map = {
+                c: f"{prefix}_{c}"
+                for c in other.columns
+                if c not in [on]
+            }
+            other = other.rename(columns=rename_map)
+            return base.merge(other, on=on, how="left")
+
+        # Merge user + movie embeddings (explicit + implicit)
+        df = _safe_merge(df, self.user_explicit, on="user_id", prefix="exp_user")
+        df = _safe_merge(df, self.movie_explicit, on="movie_id", prefix="exp_movie")
+        df = _safe_merge(df, self.user_implicit, on="user_id", prefix="imp_user")
+        df = _safe_merge(df, self.movie_implicit, on="movie_id", prefix="imp_movie")
+
+        embed_cols = [c for c in df.columns if c.startswith(("exp_", "imp_"))]
+        df.dropna(subset=embed_cols, inplace=True)
+
+
         self.df = df[
             base_cols
             + [col for col in df.columns if col.startswith("genre_")]
             + [col for col in df.columns if col.startswith("lang_")]
             + [col for col in df.columns if col.startswith("country_")]
+            + embed_cols
         ]
 
         print(f"[INFO] Final feature dataframe shape ({self.mode}): {self.df.shape}")
@@ -141,13 +188,18 @@ class FeatureBuilder:
 
 
 if __name__ == "__main__":
-    data_dir = "data/raw_data/"
+    data_dir = "data/raw_data"
+    embedding_dir = "data/embeddings"
     fb = FeatureBuilder(
-        f"{data_dir}/movies.csv",
-        f"{data_dir}/ratings.csv",
-        f"{data_dir}/users.csv",
-        mode="train"
+                movies_file=f"{data_dir}/movies.csv",
+                ratings_file=f"{data_dir}/ratings.csv",
+                users_file=f"{data_dir}/users.csv",
+                user_explicit_factors=f"{embedding_dir}/user_factors_explicit.csv",
+                movie_explicit_factors=f"{embedding_dir}/movie_factors_explicit.csv",
+                user_implicit_factors=f"{embedding_dir}/user_factors_implicit.csv",
+                movie_implicit_factors=f"{embedding_dir}/movie_factors_implicit.csv",
+                mode="train"
     )
     final_df = fb.build()
-    final_df.to_csv("data/training_data.csv", index=False)
-    print("[INFO] Saved training_data.csv")
+    final_df.to_csv("data/training_data_improved.csv", index=False)
+    print("[INFO] Saved training_data_improved.csv")
