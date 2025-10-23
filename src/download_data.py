@@ -263,7 +263,7 @@ class Pipeline:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-        self.collector = KafkaLogCollector(topic, output_dir=self.output_dir, duration=60)
+        self.collector = KafkaLogCollector(topic, output_dir=self.output_dir, duration=7200, flush_interval=200)
         self.parser = LogParser(output_dir=self.output_dir)
         self.fetcher = MetadataFetcher(
             user_api="http://fall2025-comp585.cs.mcgill.ca:8080/user/",
