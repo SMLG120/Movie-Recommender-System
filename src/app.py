@@ -1,127 +1,201 @@
 #!/usr/bin/env python3
 """
-Movie Recommender API - Production Server Deployment
-Flask API for serving movie recommendations on McGill CS servers
+Movie Recommender API – Production Server with Monitoring
+- Availability metrics via prometheus_flask_exporter
+- Model-quality metrics (CTR@K, HitRate@K, Online MAE/RMSE aggregates)
+- Health endpoints
 """
 
-from flask import Flask, Response
-import sys
 import os
 import logging
-import time
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
+from typing import List, Dict, Any, Optional
 
-# Set up import paths for Docker container
-sys.path.append('/app/src')
-sys.path.append('/app')
+from flask import Flask, request, jsonify, Response
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter
 
-from inference import RecommenderEngine
+# Local imports (paths set for Docker and local runs)
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.inference import RecommenderEngine  # noqa: E402
 
-# Define Metrics for Prometheus
-REQ_LAT = Histogram(
-    "api_request_seconds",
-    "Request latency by endpoint (seconds)",
-    ["endpoint"],
-    buckets=[0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
-)
-INF_LAT = Histogram(
-    "model_inference_seconds",
-    "Model inference latency (seconds)"
-)
-API_ERRORS = Counter(
-    "api_errors_total",
-    "5xx error count by endpoint",
-    ["endpoint"]
-)
-INPROG = Gauge(
-    "api_inprogress_requests",
-    "In-progress requests by endpoint",
-    ["endpoint"]
-)
-MODEL_READY = Gauge(
-    "model_ready",
-    "1 if model/engine is initialized, else 0"
-)
+# ------------------------------------------------------------------------------
+# Config
+# ------------------------------------------------------------------------------
+PORT = int(os.getenv("PORT", "8080"))
+MODEL_PATH = os.getenv("MODEL_PATH", "src/models/xgb_recommender.joblib")
+MOVIES_FILE = os.getenv("MOVIES_FILE", "data/raw_data/movies.csv")
+MODE = os.getenv("MODE", "prod")  # 'dev' or 'prod'
 
+# ------------------------------------------------------------------------------
+# App + Logging
+# ------------------------------------------------------------------------------
 app = Flask(__name__)
-recommender_engine = None
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("reco-api")
 
-def initialize_recommender():
-    """Initialize the RecommenderEngine for server deployment"""
-    global recommender_engine
-    
-    # Server deployment paths
-    model_path = "/app/src/models/xgb_recommender.joblib"
-    movies_path = "/app/data/raw_data/movies.csv"
-    
-    try:
-        recommender_engine = RecommenderEngine(
-            model_path=model_path,
-            movies_file=movies_path,
-            mode='dev'
-        )
-        logger.info("RecommenderEngine initialized successfully")
-        MODEL_READY.set(1)
-        return True
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize RecommenderEngine: {e}")
-        return False
+# Availability metrics (HTTP requests, latency, errors) exposed at /metrics
+metrics = PrometheusMetrics(app)
+metrics.info("service_info", "Recommender service info", version="1.0.0")
 
-# Initialize recommender on startup
-initialize_recommender()
+# ------------------------------------------------------------------------------
+# Model-quality metrics (reused from Milestone 2)
+# ------------------------------------------------------------------------------
+# Recommendations served (denominator for CTR/HitRate)
+RECO_SERVED = Counter(
+    "model_reco_served_total",
+    "Recommendations served to users"
+)
 
-@app.route('/recommend/<int:user_id>', methods=['GET'])
-def recommend(user_id: int):
-    """Main recommendation endpoint - returns comma-separated movie IDs"""
-    ep = "/recommend"
-    INPROG.labels(ep).inc()
-    t0 = time.perf_counter()
-    try:
-        if recommender_engine is None:
-            logger.warning("Engine not ready; returning fallback for user %s", user_id)
-            fallback = ",".join(str(i) for i in range(1, 21))
-            return Response(fallback, mimetype='text/plain'), 200
+# Click/engagements on served lists (numerators)
+CTR_HITS = Counter(
+    "model_ctr_at_k_total",
+    "Clicks/engagements that match served K-list"
+)
+HITRATE_HITS = Counter(
+    "model_hits_at_k_total",
+    "Hits@K that match served K-list"
+)
 
-        # measure pure inference latency
-        with INF_LAT.time():
-            recommendations = recommender_engine.recommend(user_id, top_n=20)
+# Online error aggregates for ratings (compute MAE/RMSE in PromQL)
+MAE_SUM = Counter("model_mae_sum", "Sum of absolute errors |y - y_hat|")
+RMSE_SSE = Counter("model_rmse_sse", "Sum of squared errors (y - y_hat)^2")
+ERR_COUNT = Counter("model_err_count", "Count of labeled events contributing to errors")
 
-        return Response(recommendations, mimetype='text/plain'), 200
+# ------------------------------------------------------------------------------
+# Load model
+# ------------------------------------------------------------------------------
+try:
+    recommender_engine = RecommenderEngine(
+        model_path=MODEL_PATH,
+        movies_file=MOVIES_FILE,
+        mode=MODE
+    )
+    logger.info("RecommenderEngine loaded successfully.")
+except Exception as e:
+    logger.exception("Failed to load RecommenderEngine: %s", e)
+    recommender_engine = None
 
-    except Exception as e:
-        logger.exception("Error for user %s: %s", user_id, e)
-        API_ERRORS.labels(ep).inc()
-        # still return a fallback to stay available
-        fallback = ",".join(str(i) for i in range(1, 21))
-        return Response(fallback, mimetype='text/plain'), 200
+# ------------------------------------------------------------------------------
+# Simple in-memory cache of "last served recs" per user (for CTR/HitRate demo)
+# NOTE: Replace with your real event pipeline if you already log these.
+# ------------------------------------------------------------------------------
+LAST_SERVED: Dict[int, List[str]] = {}
 
-    finally:
-        REQ_LAT.labels(ep).observe(time.perf_counter() - t0)
-        INPROG.labels(ep).dec()
+# ------------------------------------------------------------------------------
+# Routes
+# ------------------------------------------------------------------------------
 
+@app.route("/", methods=["GET"])
+def root():
+    return Response("Movie Recommender API", mimetype="text/plain")
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
+@app.route("/_live", methods=["GET"])
+def live():
+    """Liveness probe."""
+    return Response("OK", mimetype="text/plain"), 200
+
+@app.route("/_ready", methods=["GET"])
+def ready():
+    """Readiness probe: model must be loaded."""
+    ok = recommender_engine is not None
+    return (Response("READY", mimetype="text/plain"), 200) if ok \
+        else (Response("NOT_READY", mimetype="text/plain"), 503)
+
+@app.route("/health", methods=["GET"])
+def health():
     status = "OK" if recommender_engine is not None else "Service Degraded"
     code = 200 if recommender_engine is not None else 503
-    return Response(status, mimetype='text/plain'), code
+    return jsonify({"status": status}), code
 
-@app.route('/metrics', methods=['GET'])
-def metrics():
-    """Prometheus scrape endpoint"""
-    return generate_latest(REGISTRY), 200, {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"}
+@app.route("/recommend", methods=["GET"])
+def recommend():
+    """
+    Serve recommendations.
+    Query params:
+      - user_id (int, required)
+      - top_n (int, default=10)
+    Response:
+      { "user_id": ..., "recommendations": ["movie_id1", ...] }
+    """
+    if recommender_engine is None:
+        return jsonify({"error": "model not loaded"}), 503
 
-@app.route('/', methods=['GET'])
-def root():
-    """Root endpoint"""
-    return Response("Movie Recommender API", mimetype='text/plain')
+    try:
+        user_id = int(request.args.get("user_id", ""))
+    except Exception:
+        return jsonify({"error": "user_id (int) is required"}), 400
 
-if __name__ == '__main__':
-    logger.info("Starting Movie Recommender API on port 8080")
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    top_n = int(request.args.get("top_n", 10))
+    try:
+        recs_csv = recommender_engine.recommend(user_id, top_n=top_n)
+        recs = [x.strip() for x in recs_csv.split(",") if x.strip()]
+        # track served list for CTR/HitRate
+        LAST_SERVED[user_id] = recs
+        RECO_SERVED.inc()
+        return jsonify({"user_id": user_id, "recommendations": recs}), 200
+    except Exception as e:
+        logger.exception("recommend failed: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/event/click", methods=["POST"])
+def event_click():
+    """
+    Record a click/engagement event.
+    Body JSON:
+      { "user_id": 123, "item_id": "m_42" }
+    If item_id is in the last served K-list for that user, we count a hit.
+    """
+    data: Dict[str, Any] = request.get_json(silent=True) or {}
+    try:
+        user_id = int(data.get("user_id", ""))
+        item_id = str(data.get("item_id", ""))
+    except Exception:
+        return jsonify({"error": "user_id(int) and item_id(str) required"}), 400
+
+    served = LAST_SERVED.get(user_id, [])
+    if item_id in served:
+        CTR_HITS.inc()
+        HITRATE_HITS.inc()
+        return jsonify({"recorded": True, "matched_served": True}), 200
+    return jsonify({"recorded": True, "matched_served": False}), 200
+
+@app.route("/event/rating", methods=["POST"])
+def event_rating():
+    """
+    Record a rating with the predicted score to compute online errors.
+    Body JSON:
+      { "user_id": 123, "item_id": "m_42", "rating": 4.0, "predicted": 3.5 }
+    If you have a per-item scorer, you can omit "predicted" and compute it; otherwise pass it here.
+    """
+    data: Dict[str, Any] = request.get_json(silent=True) or {}
+    try:
+        rating = float(data["rating"])
+    except Exception:
+        return jsonify({"error": "rating (float) is required"}), 400
+
+    # Prefer predicted score from client/event join; avoid recomputing offline
+    pred_raw: Optional[float] = data.get("predicted")
+    if pred_raw is None:
+        # If your engine supports per-item scoring, you could do it here.
+        # For simplicity (and to avoid heavy inference), require the client to send it.
+        return jsonify({"error": "predicted (float) is required for online error"}), 400
+
+    try:
+        yhat = float(pred_raw)
+    except Exception:
+        return jsonify({"error": "predicted must be float"}), 400
+
+    err = rating - yhat
+    MAE_SUM.inc(abs(err))
+    RMSE_SSE.inc(err * err)
+    ERR_COUNT.inc()
+
+    return jsonify({"recorded": True}), 200
+
+
+if __name__ == "__main__":
+    logger.info(f"Starting Movie Recommender API on port {PORT}")
+    app.run(host="0.0.0.0", port=PORT, debug=False)

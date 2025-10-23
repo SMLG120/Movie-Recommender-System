@@ -1,0 +1,113 @@
+{
+  "title": "Recommender - Availability & Model Quality",
+  "tags": ["recommender", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Service Up",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "up{job=\"recommender\"}", "legendFormat": "up" }],
+      "fieldConfig": { "defaults": { "unit": "bool" } }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Request Rate by Status",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 9, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "sum by (status) (rate(flask_http_request_total[1m]))", "legendFormat": "{{status}}/s" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s" } }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Error Rate (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 9, "x": 15, "y": 0 },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(flask_http_request_exceptions_total[5m])) / sum(rate(flask_http_request_total[5m]))",
+          "legendFormat": "error %"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 4,
+      "title": "Latency P50 / P90 / P99 – /recommend",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum by (le) (rate(flask_http_request_duration_seconds_bucket{path=\"/recommend\"}[5m])))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.9, sum by (le) (rate(flask_http_request_duration_seconds_bucket{path=\"/recommend\"}[5m])))", "legendFormat": "p90" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(flask_http_request_duration_seconds_bucket{path=\"/recommend\"}[5m])))", "legendFormat": "p99" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 5,
+      "title": "Latency P90 – All Endpoints",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        { "expr": "histogram_quantile(0.9, sum by (le, path) (rate(flask_http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{path}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 6,
+      "title": "Kafka Consumer Lag (by group/topic)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        { "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}} {{topic}}" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Kafka Produce vs Consume (msgs/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        { "expr": "sum by (topic) (rate(kafka_topic_partition_current_offset[1m]))", "legendFormat": "produce {{topic}}" },
+        { "expr": "sum by (consumergroup) (rate(kafka_consumergroup_current_offset[1m]))", "legendFormat": "consume {{consumergroup}}" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "CTR@K (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 19 },
+      "targets": [
+        { "expr": "100 * rate(model_ctr_at_k_total[5m]) / rate(model_reco_served_total[5m])", "legendFormat": "CTR@K" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 9,
+      "title": "HitRate@K (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 19 },
+      "targets": [
+        { "expr": "100 * rate(model_hits_at_k_total[5m]) / rate(model_reco_served_total[5m])", "legendFormat": "HitRate@K" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 10,
+      "title": "Online Errors: MAE & RMSE",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 19 },
+      "targets": [
+        { "expr": "sum(rate(model_mae_sum[5m])) / sum(rate(model_err_count[5m]))", "legendFormat": "MAE" },
+        { "expr": "sqrt( sum(rate(model_rmse_sse[5m])) / sum(rate(model_err_count[5m])) )", "legendFormat": "RMSE" }
+      ]
+    }
+  ]
+}
