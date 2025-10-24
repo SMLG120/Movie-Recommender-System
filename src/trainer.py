@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from scipy.stats import randint as sp_randint
 from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -83,6 +84,83 @@ class Trainer:
         )
         return X, y, preprocessor, categorical, numeric
 
+    def load_best_params(self, tuning_file="tuning_results.json"):
+        """Load most recent tuned parameters from file."""
+        try:
+            with open(tuning_file, "r") as f:
+                all_results = json.load(f)
+            return all_results[-1]["best_params"]
+        except (FileNotFoundError, KeyError, IndexError):
+            print("[WARN] No tuned params found, using defaults.")
+            return None
+
+
+    def tune(self, tuning_file="tuning_results.json", tune_df=None, param_distributions=None, n_iter=10, cv=2, lightweight=False):
+        """
+        Optional hyperparameter tuning step.
+        - Set lightweight=True to run a quick test pass (used in CI).
+        """
+        self.df = tune_df if tune_df is not None else self.load_data()
+
+        X, y, preprocessor, _, _ = self.prepare_features()
+        X_train, _, y_train, _ = train_test_split(X, y, test_size=self.test_size, random_state=self.random_state)
+
+        param_distributions = param_distributions or {
+            "model__n_estimators": sp_randint(50, 200) if lightweight else sp_randint(100, 400),
+            "model__max_depth": sp_randint(2, 6) if lightweight else sp_randint(3, 8),
+            "model__learning_rate": [0.05, 0.1] if lightweight else [0.03, 0.05, 0.1],
+            "model__subsample": [0.8, 1.0],
+            "model__colsample_bytree": [0.8, 1.0],
+        }
+
+        model = self._model_factory()
+        pipe = Pipeline([("preprocessor", preprocessor), ("model", model)])
+
+        self._log(f"[TUNE] Running RandomizedSearchCV (n_iter={n_iter}, cv={cv})")
+        grid = RandomizedSearchCV(
+            pipe,
+            param_distributions=param_distributions,
+            n_iter=n_iter,
+            cv=cv,
+            scoring="neg_root_mean_squared_error",
+            random_state=self.random_state,
+            n_jobs=1,
+            verbose=2 if not lightweight else 0,
+        )
+        start = time.time()
+        grid.fit(X_train, y_train)
+        elapsed = round(time.time() - start, 2)
+
+        self.best_params_ = grid.best_params_
+        best_rmse = -grid.best_score_
+
+        results = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "best_params": self.best_params_,
+            "best_cv_rmse": best_rmse,
+            "tuning_time_sec": elapsed,
+            "cv_folds": cv,
+            "param_grid_size": n_iter,
+        }
+
+        self._log(f"[TUNE] Best RMSE={best_rmse:.3f}, Params={self.best_params_}")
+
+        # --- Save to tuning log ---
+        try:
+            with open(tuning_file, "r") as f:
+                all_results = json.load(f)
+        except FileNotFoundError:
+            all_results = []
+
+        all_results.append(results)
+        os.makedirs(os.path.dirname(tuning_file) or ".", exist_ok=True)
+        with open(tuning_file, "w") as f:
+            json.dump(all_results, f, indent=2)
+
+        self._log(f"[INFO] Tuning results appended to {tuning_file}")
+        return self.best_params_
+
+
     def train(self, tuning_params=None):
         """Train pipeline with injected or default params."""
         if self.df is None:
@@ -148,8 +226,6 @@ if __name__ == "__main__":
     df = pd.read_csv(train_data)
     tuning_df = df.sample(frac=0.4, random_state=42)
 
-    trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
-    trainer.train(train_results="src/train_results/training_results.json",
-                  tuning_file="src/train_results/tuning_results.json",
-                  experiment_name="xgb_recommender_v2")
-    trainer.save(model_path="src/models/xgb_recommender.joblib")
+    trainer.tune(tuning_file="src/train_results_2/tuning_results.json", tune_df=tuning_df)
+    trainer.train()
+    trainer.save(output_dir="src/models_2")
