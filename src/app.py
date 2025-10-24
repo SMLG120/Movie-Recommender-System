@@ -19,13 +19,13 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from inference import RecommenderEngine  
+from src.inference import RecommenderEngine  
 
 # ------------------------------------------------------------------------------
 # Config
 # ------------------------------------------------------------------------------
 PORT = int(os.getenv("PORT", "8080"))
-MODEL_PATH = os.getenv("MODEL_PATH", "src/models/xgb_recommender.joblib")
+MODEL_PATH = os.getenv("MODEL_PATH", "src/models/xgb_model.joblib")
 MOVIES_FILE = os.getenv("MOVIES_FILE", "data/raw_data/movies.csv")
 MODE = os.getenv("MODE", "prod")  # 'dev' or 'prod'
 

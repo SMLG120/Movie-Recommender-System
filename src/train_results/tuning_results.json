@@ -30,5 +30,19 @@
     "tuning_time_sec": 234.99,
     "cv_folds": 2,
     "param_grid_size": 15
+  },
+  {
+    "timestamp": "2025-10-23T22:32:37.642871",
+    "best_params": {
+      "model__colsample_bytree": 0.8,
+      "model__learning_rate": 0.1,
+      "model__max_depth": 4,
+      "model__n_estimators": 314,
+      "model__subsample": 0.8
+    },
+    "best_cv_rmse": 0.6075945496559143,
+    "tuning_time_sec": 160.4,
+    "cv_folds": 2,
+    "param_grid_size": 10
   }
 ]
