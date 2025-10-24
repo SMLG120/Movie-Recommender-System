@@ -2,13 +2,19 @@ version: "3.8"
 
 services:
   movie-reco-api:
-    image: movie-recommender        
+    build:
+      context: ..            
+      dockerfile: docker/Dockerfile 
+    image: movie-recommender:latest     
     container_name: movie-reco-api
-    command: ["gunicorn","-w","2","-b","0.0.0.0:8080","src.app:app"]
-    ports: ["8080:8080"]             
-    networks: [monitoring]     
+    command: ["gunicorn","-w","1","-b","0.0.0.0:8080","src.app:app"]
+    ports: ["8080:8080"] 
     environment:
-      - PORT=8080                 
+      - PORT=8080
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus
+    volumes:
+      - /tmp/prometheus:/tmp/prometheus            
+    networks: [monitoring]                    
   prometheus:
     image: prom/prometheus:v2.52.0
     container_name: prometheus
@@ -43,7 +49,6 @@ services:
     container_name: kafka-exporter
     command:
       - --kafka.server=fall2025-comp585.cs.mcgill.ca:9092
-      # optional but useful filters for noisy clusters:
       - --topic.filter=^movielog.*$
       - --group.filter=.*
     ports:

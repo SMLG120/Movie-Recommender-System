@@ -18,3 +18,5 @@ pytest>=7.4.0
 pytest-cov>=4.1.0
 # monitoring dependencies
 prometheus-client~=0.20.0
+gunicorn>=21.2
+prometheus-flask-exporter>=0.23
