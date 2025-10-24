@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-10-23T19:22:25.301940",
+  "metrics": {
+    "rmse": 0.6666666666666665,
+    "mae": 0.6666666666666665,
+    "r2": NaN
+  },
+  "train_time_sec": 0.003,
+  "avg_infer_time_sec": 0.005033,
+  "train_samples": 3,
+  "test_samples": 1
+}
