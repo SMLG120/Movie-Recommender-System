@@ -10,43 +10,70 @@ import pandas as pd
 from tqdm import tqdm
 from collections import defaultdict
 from confluent_kafka import Consumer
+from typing import Iterable, Callable, List, Tuple, Dict, Any
 
 
-# ---------------------------------------------
 # 1. KafkaLogCollector — responsible for fetching logs
-# ---------------------------------------------
 class KafkaLogCollector:
-    def __init__(self, topic="movielog6", duration=600, flush_interval=100, output_dir="data"):
+    def __init__(
+        self,
+        topic="movielog6",
+        duration=600,
+        flush_interval=100,
+        output_dir="data",
+        consumer_factory=None, 
+        time_provider=None,  
+    ):
         self.topic = topic
         self.duration = duration
         self.flush_interval = flush_interval
-        self.log_dir = f"{output_dir}/raw_data" # store raw logs
+        self.log_dir = f"{output_dir}/raw_data"
         os.makedirs(self.log_dir, exist_ok=True)
+
+        # Dependency injection points
+        self._consumer_factory = consumer_factory or self._default_consumer_factory
+        self._time = time_provider or time
         self.logger = logging.getLogger("KafkaLogCollector")
 
-    def collect(self, output_log=None):
-        """Stream logs from Kafka and write incrementally to disk."""
-        output_log = output_log or os.path.join(self.log_dir, "event_stream.log")
-        consumer = Consumer({
+    def _default_consumer_factory(self):
+        """Default Kafka consumer factory."""
+        return Consumer({
             'bootstrap.servers': 'fall2025-comp585.cs.mcgill.ca:9092',
             'group.id': 'recsys',
             'auto.offset.reset': 'earliest'
         })
+
+    def _handle_message(self, msg):
+        """Decode and validate a Kafka message."""
+        if msg.error():
+            self.logger.error(f"Kafka error: {msg.error()}")
+            return None
+        try:
+            return msg.value().decode("utf-8")
+        except Exception as e:
+            self.logger.warning(f"Decode error: {e}")
+            return None
+
+    def collect(self, output_log=None):
+        """Stream logs from Kafka and write incrementally to disk."""
+        output_log = output_log or os.path.join(self.log_dir, "event_stream.log")
+        consumer = self._consumer_factory()
         consumer.subscribe([self.topic])
 
-        start_time = time.time()
+        start_time = self._time.time()
         processed = 0
         self.logger.info(f"Collecting logs from {self.topic} for {self.duration}s")
 
         with open(output_log, "a", encoding="utf-8") as f:
-            while time.time() - start_time < self.duration:
+            while self._time.time() - start_time < self.duration:
                 msg = consumer.poll(1.0)
                 if msg is None:
                     continue
-                if msg.error():
-                    self.logger.error(f"Kafka error: {msg.error()}")
+
+                line = self._handle_message(msg)
+                if not line:
                     continue
-                line = msg.value().decode("utf-8")
+
                 f.write(line + "\n")
                 processed += 1
 
@@ -57,18 +84,94 @@ class KafkaLogCollector:
         self.logger.info(f"Finished consuming after {self.duration}s, total {processed} messages.")
         return output_log
 
+    # def collect_user_logs(self, user_id: str, output_log=None, max_messages=500):
+    #     """
+    #     Stream and collect only logs containing a given user_id.
+    #     Returns path to the filtered log file.
+    #     """
+    #     output_log = output_log or os.path.join(self.log_dir, f"user_{user_id}_logs.log")
+    #     self.logger.info(f"[USER LOGS] Collecting logs for user {user_id} into {output_log}")
+    #     consumer = self._consumer_factory()
+    #     consumer.subscribe([self.topic])
 
-# ---------------------------------------------
+    #     self.logger.info("[USER LOGS] Starting collection...")
+    #     processed = 0
+    #     with open(output_log, "w", encoding="utf-8") as f:
+    #         while processed < max_messages:
+    #             msg = consumer.poll(1.0)
+    #             if not msg or msg.error():
+    #                 continue
+    #             line = msg.value().decode("utf-8")
+    #             if f",{user_id}," in line:   # fast substring match
+    #                 f.write(line + "\n")
+    #                 processed += 1
+
+    #     consumer.close()
+    #     self.logger.info(f"[USER LOGS] Collected {processed} lines for user {user_id}")
+    #     return output_log
+
+
+
 # 2. LogParser — responsible for extracting IDs and ratings
-# ---------------------------------------------
 class LogParser:
-    def __init__(self, output_dir="data"):
+    def __init__(self, output_dir="data", file_reader=None, file_writer=None):
+        """
+        output_dir: directory for saving parsed data
+        file_reader: injectable callable for reading file lines (for tests)
+        file_writer: injectable callable for writing to CSV (for tests)
+        """
         self.logger = logging.getLogger("LogParser")
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-    def parse_logs(self, logfile):
-        """Parse Kafka logs, append only new user-movie pairs, and return new IDs."""
+        self.file_reader = file_reader or self._default_reader
+        self.file_writer = file_writer or self._default_writer
+
+    def _default_reader(self, path: str) -> Iterable[str]:
+        with open(path, "r", encoding="utf-8") as f:
+            yield from f
+
+    def _default_writer(self, path: str, rows: List[List[str]], header: List[str] = None):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        write_header = not os.path.exists(path)
+        with open(path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if header and write_header:
+                writer.writerow(header)
+            writer.writerows(rows)
+
+    @staticmethod
+    def extract_watch_event(line: str) -> Tuple[str, str, int] | None:
+        """Extract user, movie, and minute from a raw log line."""
+        parts = line.strip().split(",")
+        if len(parts) < 3:
+            return None
+        user = parts[1]
+        m = re.search(r"/data/m/([^/]+)/(\d+)\.mpg", line)
+        if not m:
+            return None
+        movie, minute = m.group(1), int(m.group(2))
+        return user, movie, minute
+
+    @staticmethod
+    def extract_rating_event(line: str) -> Dict[str, str] | None:
+        """Extract rating info from a log line."""
+        parts = line.strip().split(",")
+        if len(parts) < 3:
+            return None
+        timestamp, user_id = parts[0], parts[1]
+        m = re.search(r"GET /rate/([^=]+)=(\d+)", line)
+        if not m:
+            return None
+        return {
+            "timestamp": timestamp,
+            "user_id": user_id,
+            "movie_id": m.group(1),
+            "rating": int(m.group(2))
+        }
+
+    def parse_logs(self, logfile: str):
+        """Parse logs and return new user/movie IDs."""
         self.logger.info(f"Parsing logs from {logfile}")
         output_csv = os.path.join(self.output_dir, "raw_data/watch_time.csv")
         os.makedirs(os.path.dirname(output_csv), exist_ok=True)
@@ -82,110 +185,114 @@ class LogParser:
         user_ids, movie_ids = set(), set()
         watch_minutes = defaultdict(lambda: defaultdict(set))
 
-        with open(logfile, "r", encoding="utf-8") as f:
-            for line in f:
-                parts = line.strip().split(",")
-                if len(parts) < 3:
-                    continue
-                user = parts[1]
-                user_ids.add(user)
-                m = re.search(r"/data/m/([^/]+)/(\d+)\.mpg", line)
-                if not m:
-                    continue
-                movie, minute = m.group(1), int(m.group(2))
-                movie_ids.add(movie)
-                watch_minutes[user][movie].add(minute)
+        for line in self.file_reader(logfile):
+            event = self.extract_watch_event(line)
+            if not event:
+                continue
+            user, movie, minute = event
+            user_ids.add(user)
+            movie_ids.add(movie)
+            watch_minutes[user][movie].add(minute)
 
-        write_header = not os.path.exists(output_csv)
-        with open(output_csv, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            if write_header:
-                writer.writerow(["user_id", "movie_id", "interaction_count", "max_minute_reached"])
-            for user, movies in watch_minutes.items():
-                for movie, minutes in movies.items():
-                    if (user, movie) in existing_pairs:
-                        continue
-                    writer.writerow([user, movie, len(minutes), max(minutes)])
+        rows = []
+        for user, movies in watch_minutes.items():
+            for movie, minutes in movies.items():
+                if (user, movie) not in existing_pairs:
+                    rows.append([user, movie, len(minutes), max(minutes)])
+
+        if rows:
+            self.file_writer(
+                output_csv, rows,
+                header=["user_id", "movie_id", "interaction_count", "max_minute_reached"]
+            )
 
         self.logger.info(
-            f"Processed {len(user_ids)} users and {len(movie_ids)} movies. \nSaved watch time interaction to {output_csv}"
+            f"Processed {len(user_ids)} users and {len(movie_ids)} movies. "
+            f"Saved watch time interactions to {output_csv}"
         )
         return user_ids, movie_ids
 
-    def parse_ratings(self, logfile, user_ids, movie_ids):
-        """Extract ratings interactions filtered by known users/movies."""
+    def parse_ratings(self, logfile: str, user_ids: set, movie_ids: set):
+        """Extract ratings filtered by known users/movies."""
         self.logger.info(f"Extracting ratings from {logfile}")
         output_csv = os.path.join(self.output_dir, "raw_data/ratings.csv")
         os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
         ratings = []
-        pattern = re.compile(r"GET /rate/([^=]+)=(\d+)")
-
-        with open(logfile, "r", encoding="utf-8") as f:
-            for line in f:
-                parts = line.strip().split(",")
-                if len(parts) < 3:
-                    continue
-                timestamp, user_id = parts[0], parts[1]
-                m = pattern.search(line)
-                if m:
-                    movie_id = m.group(1)
-                    rating = int(m.group(2))
-                    if user_id in user_ids and movie_id in movie_ids:
-                        ratings.append({
-                            "timestamp": timestamp,
-                            "user_id": user_id,
-                            "movie_id": movie_id,
-                            "rating": rating
-                        })
+        for line in self.file_reader(logfile):
+            rating = self.extract_rating_event(line)
+            if rating and rating["user_id"] in user_ids and rating["movie_id"] in movie_ids:
+                ratings.append(rating)
 
         if ratings:
-            os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+            self.logger.info(f"Extracted {len(ratings)} ratings → {output_csv}")
             with open(output_csv, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=["timestamp", "user_id", "movie_id", "rating"])
                 writer.writeheader()
                 writer.writerows(ratings)
-            self.logger.info(f"Extracted {len(ratings)} ratings into {output_csv}")
+
         return ratings
 
 
-# ---------------------------------------------
 # 3. MetadataFetcher — fetch user/movie metadata via API
-# ---------------------------------------------
 class MetadataFetcher:
-    def __init__(self, user_api, movie_api, output_dir="data"):
+    """Fetches user and movie metadata and saves structured results."""
+
+    def __init__(
+        self,
+        user_api: str,
+        movie_api: str,
+        output_dir: str = "data",
+        http_get: Callable[[str], Any] = None,
+        sleep_fn: Callable[[float], None] = None,
+    ):
         self.output_dir = output_dir
         self.user_api = user_api
         self.movie_api = movie_api
         self.movie_dir = os.path.join(output_dir, "raw_data/movies")
         os.makedirs(self.movie_dir, exist_ok=True)
 
+        # injectable functions for testing
+        self.http_get = http_get or requests.get
+        self.sleep = sleep_fn or time.sleep
+
         self.logger = logging.getLogger("MetadataFetcher")
 
-    def fetch_user(self, user_id):
+    def fetch_user(self, user_id: str) -> Dict[str, Any] | None:
+        """Fetch a single user record from API."""
         try:
-            r = requests.get(self.user_api + str(user_id), timeout=5)
-            return r.json() if r.status_code == 200 else None
+            r = self.http_get(self.user_api + str(user_id))
+            if r.status_code == 200:
+                return r.json()
+            self.logger.warning(f"User {user_id} returned {r.status_code}")
         except Exception as e:
             self.logger.error(f"User fetch error {user_id}: {e}")
-            return None
+        return None
 
-    def fetch_movie(self, movie_id, overwrite=False):
+    def fetch_movie(self, movie_id: str, overwrite: bool = False) -> Dict[str, Any] | None:
+        """Fetch and save a single movie record."""
         safe_id = movie_id.replace("/", "_")
         out_file = os.path.join(self.movie_dir, f"{safe_id}.json")
+
         if os.path.exists(out_file) and not overwrite:
-            return
+            self.logger.debug(f"Skipping existing movie file {safe_id}")
+            return None
+
         try:
-            r = requests.get(self.movie_api + movie_id, timeout=5)
+            r = self.http_get(self.movie_api + movie_id)
             if r.status_code == 200:
-                with open(out_file, "a", encoding="utf-8") as f:
-                    json.dump(r.json(), f)
+                data = r.json()
+                with open(out_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
+                return data
+            else:
+                self.logger.warning(f"Movie {movie_id} returned {r.status_code}")
         except Exception as e:
             self.logger.error(f"Movie fetch error {movie_id}: {e}")
+        return None
 
-
-    def fetch_all_users(self, user_ids, delay=0.1):
-        """Fetch users and append to users.csv."""
+    def fetch_all_users(self, user_ids: List[str], delay: float = 0.1) -> List[Dict[str, Any]]:
+        """Fetch multiple users and append to CSV."""
         output_csv = os.path.join(self.output_dir, "raw_data/users.csv")
         os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
@@ -196,53 +303,62 @@ class MetadataFetcher:
 
         if not user_ids:
             self.logger.info("No new users to fetch.")
-            return
+            return []
 
-        self.logger.info(f"Fetching {len(user_ids)} users...")
         new_data = []
         for uid in tqdm(user_ids, desc="Users"):
-            user_data = self.fetch_user(uid)
-            if user_data:
-                new_data.append(user_data)
-            time.sleep(delay)
+            data = self.fetch_user(uid)
+            if data:
+                new_data.append(data)
+            self.sleep(delay)
 
         if new_data:
-            pd.DataFrame(new_data).to_csv(
-                output_csv, mode="a", index=False, header=not os.path.exists(output_csv)
+            df = pd.DataFrame(new_data)
+            df.to_csv(
+                output_csv,
+                mode="a",
+                index=False,
+                header=not os.path.exists(output_csv),
             )
             self.logger.info(f"Appended {len(new_data)} users → {output_csv}")
+        return new_data
 
-    def fetch_all_movies(self, movie_ids, delay=0.1):
+    def fetch_all_movies(self, movie_ids: List[str], delay: float = 0.1) -> None:
+        """Fetch all movies and flatten results to CSV."""
         self.logger.info(f"Fetching {len(movie_ids)} movies...")
         for mid in tqdm(movie_ids, desc="Movies"):
             self.fetch_movie(mid)
-            time.sleep(delay)
+            self.sleep(delay)
         self.flatten_movies_json()
 
-    def flatten_movies_json(self):
-        """Flatten all movie JSONs in a folder into a single CSV."""
-        movie_csv = os.path.join(self.output_dir, "raw_data/movies.csv")
-        movies = []
+    @staticmethod
+    def flatten_movie_json(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert movie JSON dict into a flat CSV-friendly dict."""
+        return {
+            "id": data.get("id"),
+            "title": data.get("title"),
+            "original_language": data.get("original_language"),
+            "release_date": data.get("release_date"),
+            "runtime": data.get("runtime"),
+            "popularity": data.get("popularity"),
+            "vote_average": data.get("vote_average"),
+            "vote_count": data.get("vote_count"),
+            "genres": ",".join([g.get("name", "") for g in data.get("genres", [])]),
+            "spoken_languages": ",".join([l.get("name", "") for l in data.get("spoken_languages", [])]),
+            "production_countries": ",".join([c.get("iso_3166_1", "") for c in data.get("production_countries", [])]),
+            "overview": (data.get("overview") or "").replace("\n", " "),
+        }
 
-        for file in glob.glob(f"{self.movie_dir}/*.json"):
+    def flatten_movies_json(self) -> List[Dict[str, Any]]:
+        """Flatten all movie JSON files into one CSV."""
+        movie_csv = os.path.join(self.output_dir, "raw_data/movies.csv")
+        json_files = glob.glob(f"{self.movie_dir}/*.json")
+
+        movies = []
+        for file in json_files:
             with open(file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-
-                movie = {
-                    "id": data.get("id"),
-                    "title": data.get("title"),
-                    "original_language": data.get("original_language"),
-                    "release_date": data.get("release_date"),
-                    "runtime": data.get("runtime"),
-                    "popularity": data.get("popularity"),
-                    "vote_average": data.get("vote_average"),
-                    "vote_count": data.get("vote_count"),
-                    "genres": ",".join([g.get("name", "") for g in data.get("genres", [])]),
-                    "spoken_languages": ",".join([l.get("name", "") for l in data.get("spoken_languages", [])]),
-                    "production_countries": ",".join([c.get("iso_3166_1", "") for c in data.get("production_countries", [])]),
-                    "overview": (data.get("overview") or "").replace("\n", " ")
-                }
-                movies.append(movie)
+                movies.append(self.flatten_movie_json(data))
 
         if not movies:
             raise ValueError("No movie JSON files found to process.")
@@ -253,36 +369,63 @@ class MetadataFetcher:
             writer.writerows(movies)
 
         self.logger.info(f"Saved {len(movies)} movies into {movie_csv}")
+        return movies
 
 
-# ---------------------------------------------
-# 4. Pipeline — orchestrates the flow end-to-end
-# ---------------------------------------------
-class Pipeline:
-    def __init__(self, topic="movielog6", output_dir="data"):
+# 4. DataPipeline — orchestrates the flow end-to-end
+class DataPipeline:
+    """End-to-end data pipeline orchestrator."""
+
+    def __init__(
+        self,
+        topic: str = "movielog6",
+        output_dir: str = "data",
+        collector=None,
+        parser=None,
+        fetcher=None,
+        logger=None,
+    ):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-        self.collector = KafkaLogCollector(topic, output_dir=self.output_dir, duration=60)
-        self.parser = LogParser(output_dir=self.output_dir)
-        self.fetcher = MetadataFetcher(
-            user_api="http://fall2025-comp585.cs.mcgill.ca:8080/user/",
-            movie_api="http://fall2025-comp585.cs.mcgill.ca:8080/movie/",
-            output_dir=self.output_dir
-        )
+        # Dependency injection (for tests)
+        self.collector = collector
+        self.parser = parser
+        self.fetcher = fetcher
+
+        # Initialization only if not provided (real runtime)
+        if self.collector is None:
+            from recommender.data_download import KafkaLogCollector
+            self.collector = KafkaLogCollector(topic, output_dir=self.output_dir, duration=7200, flush_interval=200)
+        if self.parser is None:
+            from recommender.log_parser import LogParser
+            self.parser = LogParser(output_dir=self.output_dir)
+        if self.fetcher is None:
+            from recommender.metadata import MetadataFetcher
+            self.fetcher = MetadataFetcher(
+                user_api="http://fall2025-comp585.cs.mcgill.ca:8080/user/",
+                movie_api="http://fall2025-comp585.cs.mcgill.ca:8080/movie/",
+                output_dir=self.output_dir,
+            )
+
+        self.logger = logger or logging.getLogger("Pipeline")
 
     def run(self):
+        """Execute full pipeline; return summary dict for testing."""
+        self.logger.info("Starting pipeline run...")
         logfile = self.collector.collect()
         users, movies = self.parser.parse_logs(logfile)
+
+        self.logger.info(f"Parsed {len(users)} users and {len(movies)} movies from logs")
+
         self.fetcher.fetch_all_users(users)
         self.fetcher.fetch_all_movies(movies)
         self.parser.parse_ratings(logfile, users, movies)
-        print("Pipeline complete!")
+
+        self.logger.info("Pipeline complete!")
+        return {"users": len(users), "movies": len(movies)}
 
 
-# ---------------------------------------------
-# Entry point
-# ---------------------------------------------
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     pipeline = Pipeline(topic="movielog6")

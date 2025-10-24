@@ -1,5 +1,8 @@
+import joblib
 import pandas as pd
 import numpy as np
+from pathlib import Path
+from typing import Optional, Callable
 from configs import LANGUAGE_MAP
 
 import warnings
@@ -7,147 +10,237 @@ warnings.filterwarnings("ignore")
 
 
 class FeatureBuilder:
-    def __init__(self, movies_file=None, ratings_file=None, users_file=None, mode="train"):
+    def __init__(
+        self,
+        movies_file: Optional[str] = None,
+        ratings_file: Optional[str] = None,
+        users_file: Optional[str] = None,
+        user_explicit_factors: Optional[str] = None,
+        movie_explicit_factors: Optional[str] = None,
+        user_implicit_factors: Optional[str] = None,
+        movie_implicit_factors: Optional[str] = None,
+        mode: str = "train",
+        reader: Callable[[str], pd.DataFrame] = None,   # inject for tests
+        logger: Optional[Callable[[str], None]] = None,
+    ):
+
         self.mode = mode
-        self.movies = pd.read_csv(movies_file) if movies_file else None
-        self.ratings = pd.read_csv(ratings_file) if ratings_file else None
-        self.users = pd.read_csv(users_file) if users_file else None
+        self._read_csv = reader or pd.read_csv
+        self._log = logger or (lambda msg: print(msg))
+
+        # Load data (mockable)
+        self.movies = self._safe_read(movies_file)
+        self.ratings = self._safe_read(ratings_file)
+        self.users = self._safe_read(users_file)
+        self.user_explicit = self._safe_read(user_explicit_factors)
+        self.movie_explicit = self._safe_read(movie_explicit_factors)
+        self.user_implicit = self._safe_read(user_implicit_factors)
+        self.movie_implicit = self._safe_read(movie_implicit_factors)
         self.df = None
 
-    def build(self, df_override=None):
-        """
-        Build final feature dataframe.
-        If mode == 'train': merge ratings, users, and movies.
-        If mode == 'inference': expect df with user+movie candidates.
-        """
+    def _safe_read(self, path):
+        if not path:
+            return None
+        p = Path(path)
+        if not p.exists():
+            self._log(f"[WARN] File not found: {path}")
+            return None
+        return self._read_csv(path)
 
+
+    def build(self, df_override=None):
+        """Build the final feature dataframe."""
+        df = self._prepare_base(df_override)
+        df = self._coerce_types(df)
+        df = self._fill_missing(df)
+        df = self._handle_dates_and_bins(df) 
+        df = self._countries_and_languages(df)
+        df = self._clip_outliers(df)
+        df = self._encode_features(df)
+        df = self._merge_embeddings(df)
+        self.df = self._select_final_columns(df)
+        self._log(f"[INFO] Final feature dataframe shape ({self.mode}): {self.df.shape}")
+        return self.df
+
+
+    def _prepare_base(self, df_override):
         if self.mode == "train":
+            if self.ratings is None or self.users is None or self.movies is None:
+                raise ValueError("Missing one of ratings/users/movies for training mode.")
             df = self.ratings.merge(self.users, on="user_id", how="left")
             df = df.merge(self.movies, left_on="movie_id", right_on="id", how="left")
         elif self.mode == "inference":
             if df_override is None:
-                raise ValueError("Inference mode requires df_override (user+movie candidates).")
+                raise ValueError("Inference mode requires df_override.")
             df = df_override.copy()
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
-        
-        # --- Coerce Types ---
-        for c in ["age", "runtime", "popularity", "vote_average", "vote_count"]:
+        return df
+
+    def _coerce_types(self, df):
+        num_cols = ["age", "runtime", "popularity", "vote_average", "vote_count"]
+        for c in num_cols:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors="coerce")
-        for c in ["age_bin","occupation","gender","original_language"]:
-            if c not in df.columns:
-                df[c] = "unknown"
-            df[c] = df[c].astype(str)
+        return df
 
-        # --- Handle Missing Values ---
-        df["age"] = df["age"].fillna(df["age"].median())
-        df["runtime"] = df["runtime"].fillna(df["runtime"].median())
-        df["popularity"] = df["popularity"].fillna(0)
-        df["vote_average"] = df["vote_average"].fillna(0)
-        df["vote_count"] = df["vote_count"].fillna(0)
+    def _fill_missing(self, df):
+        if "age" in df.columns:
+            df["age"] = df["age"].fillna(df["age"].median())
 
-        df["occupation"] = df["occupation"].fillna("unknown")
-        df["gender"] = df["gender"].fillna("U")
-        df["original_language"] = df["original_language"].fillna("unknown")
+        for col in ["runtime", "popularity", "vote_average", "vote_count"]:
+            if col in df.columns:
+                df[col] = df[col].fillna(0)
 
-        # Release year
-        df["release_year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
-        df["release_year"] = df["release_year"].fillna(-1).astype(int)
+        for cat in ["occupation", "gender", "original_language"]:
+            if cat in df.columns:
+                df[cat] = df[cat].fillna("unknown").astype(str)
+        return df
 
-        # Age binning
+    def _handle_dates_and_bins(self, df):
+        df["release_year"] = pd.to_datetime(df.get("release_date"), errors="coerce").dt.year
+        df["release_year"] = df["release_year"].fillna(df["release_year"].median())
         df["age_bin"] = pd.cut(
             df["age"],
             bins=[0, 18, 25, 35, 50, 100],
-            labels=["0-18", "19-25", "26-35", "36-50", "50+"]
+            labels=["0-18", "19-25", "26-35", "36-50", "50+"],
         )
-        # Ensure keys
-        if "user_id" not in df:  df["user_id"] = -1
-        if "movie_id" not in df: df["movie_id"] = df.get("id", -1)
+        return df
 
-        # --- Light outlier checks ---
-        # keeps data, just clips into valid ranges and prints a summary
-        def _clip_with_flag(s, low=None, high=None, name="col"):
-            orig = s.copy()
-            if low is not None:  s = s.clip(lower=low)
-            if high is not None: s = s.clip(upper=high)
-            clipped = (orig != s).sum()
-            if clipped:
-                total = len(s)
-                pct = 100.0 * clipped / total
-                print(f"[INFO] clipped {name}: {clipped}/{total} ({pct:.2f}%)")
-            else:
-                print("no clipping needed for", name)
-            return s
-    
-        print("[INFO] Outlier clipping summary:")
-        if "age" in df: df["age"] = _clip_with_flag(df["age"], 5, 100, "age")
-        if "runtime" in df: df["runtime"] = _clip_with_flag(df["runtime"], 30, 300, "runtime")
-        if "vote_count" in df: df["vote_count"] = _clip_with_flag(df["vote_count"], 0, None, "vote_count")
+    def _clip_outliers(self, df):
+        def _clip(s, low=None, high=None):
+            if s is None:
+                return s
+            return s.clip(lower=low, upper=high)
+
+        if "age" in df: df["age"] = _clip(df["age"], 5, 100)
+        if "runtime" in df: df["runtime"] = _clip(df["runtime"], 30, 720)
+        if "vote_count" in df: df["vote_count"] = _clip(df["vote_count"], 0)
         if "release_year" in df:
-            this_year = pd.Timestamp.now().year
-            df["release_year"] = _clip_with_flag(df["release_year"], 1900, this_year + 1, "release_year")
+            df["release_year"] = _clip(df["release_year"], 1500, pd.Timestamp.now().year + 1)
+        return df
 
-        # Genres multi-hot (keep as binary features)
+    def _encode_features(self, df):
+        """Encode genres, countries, and languages as multi-hot features."""
+        df["genres"] = df["genres"].fillna("unknown")
         for g in df["genres"].dropna().unique():
-            if not isinstance(g, str):
-                continue
-            for genre in g.split(","):
-                genre = genre.strip()
-                if genre:
-                    df[f"genre_{genre}"] = df["genres"].fillna("").str.contains(genre).astype(int)
+            if isinstance(g, str):
+                for genre in [x.strip() for x in g.split(",") if x.strip()]:
+                    df[f"genre_{genre}"] = df["genres"].str.contains(genre).astype(int)
+        return df
 
-        # Production countries multi-hot
-        for c in df["production_countries"].dropna().unique():
-            if not isinstance(c, str):
-                continue
-            for country in c.split(","):
-                country = country.strip()
-                if country:
-                    df[f"country_{country}"] = df["production_countries"].fillna("").str.contains(country).astype(int)
 
-        # Spoken languages → normalized multi-hot
-        def normalize_languages(lang_str):
-            if pd.isna(lang_str):
-                return []
-            langs = [l.strip() for l in lang_str.split(",") if l.strip()]
-            return set([LANGUAGE_MAP.get(l, l) for l in langs])
-
-        df["normalized_langs"] = df["spoken_languages"].apply(normalize_languages)
-        all_langs = sorted({lang for langs in df["normalized_langs"] for lang in langs})
-        for lang in all_langs:
-            df[f"lang_{lang}"] = df["normalized_langs"].apply(lambda x: int(lang in x))
+    def _countries_and_languages(self, df):
+        # Production countries multi-hot 
+        df["production_countries"] = df["production_countries"].fillna("unknown") 
+        for c in df["production_countries"].dropna().unique(): 
+            if not isinstance(c, str): 
+                continue 
+                
+            for country in c.split(","): 
+                country = country.strip() 
+                if country: 
+                    df[f"country_{country}"] = df["production_countries"].fillna("").str.contains(country).astype(int) 
+                    
+        # Spoken languages → normalized multi-hot 
+        def normalize_languages(lang_str): 
+            if pd.isna(lang_str): 
+                return [] 
+            lang_str = lang_str.strip().replace(" ", "")
+            lang_str = lang_str.replace(",", ",").replace(";", ",")
+            langs = [l.strip() for l in lang_str.split(",") if l.strip()] 
+            return set([LANGUAGE_MAP.get(l, l) for l in langs]) 
         
-        # Final selection
-        base_cols = [
-            "user_id", "age", "age_bin", "occupation", "gender",
-            "movie_id", "runtime", "popularity", "vote_average", "vote_count",
-            "release_year", "original_language"
-        ]
+        df["normalized_langs"] = df["spoken_languages"].fillna(df["original_language"])
+        df["normalized_langs"] = df["spoken_languages"].apply(normalize_languages) 
+        df["normalized_langs"] = df["normalized_langs"].fillna("und")
+        
+        all_langs = sorted({lang for langs in df["normalized_langs"] for lang in langs}) 
+        for lang in all_langs: 
+            df[f"lang_{lang}"] = df["normalized_langs"].apply(lambda x: int(lang in x))
+        df.drop(columns=["normalized_langs"], inplace=True)
+        return df
+
+    def _merge_embeddings(self, df):
+        def _safe_merge(base, other, on, prefix):
+            if other is None:
+                return base
+            rename_map = {c: f"{prefix}_{c}" for c in other.columns if c != on}
+            return base.merge(other.rename(columns=rename_map), on=on, how="left")
 
         if self.mode == "train":
-            df = df.dropna(subset=["rating"])
-            base_cols.append("rating")
+            # --- TRAIN MODE ---
+            df = _safe_merge(df, self.user_explicit, "user_id", "exp_user")
+            df = _safe_merge(df, self.movie_explicit, "movie_id", "exp_movie")
+            df = _safe_merge(df, self.user_implicit, "user_id", "imp_user")
+            df = _safe_merge(df, self.movie_implicit, "movie_id", "imp_movie")
 
-        self.df = df[
-            base_cols
-            + [col for col in df.columns if col.startswith("genre_")]
-            + [col for col in df.columns if col.startswith("lang_")]
-            + [col for col in df.columns if col.startswith("country_")]
+        else:
+            # --- INFERENCE MODE ---
+            mean_embeds = joblib.load("src/models/mean_embeddings.joblib")
+
+            # Apply global mean user embeddings
+            for col, val in mean_embeds["exp_user"].items():
+                df[f"exp_user_{col}"] = val
+            for col, val in mean_embeds["imp_user"].items():
+                df[f"imp_user_{col}"] = val
+
+            # Apply global mean movie embeddings
+            for col, val in mean_embeds["exp_movie"].items():
+                df[f"exp_movie_{col}"] = val
+            for col, val in mean_embeds["imp_movie"].items():
+                df[f"imp_movie_{col}"] = val
+
+        return df
+
+    def _select_final_columns(self, df):
+        cols = [
+            "user_id", "age", "age_bin", "occupation", "gender",
+            "movie_id", "runtime", "popularity", "vote_average", "vote_count",
+            "release_year", "original_language",
         ]
+        if self.mode == "train" and "rating" in df:
+            cols.append("rating")
+        # add all embedding + genre features dynamically
+        extra = [c for c in df.columns if c.startswith(("exp_", "imp_", "genre_", "lang_", "country_"))]
+        return df[[c for c in cols if c in df] + extra]
 
-        print(f"[INFO] Final feature dataframe shape ({self.mode}): {self.df.shape}")
-        return self.df
+        # def _safe_merge(base, other, on, prefix): 
+        #     if other is None: 
+        #         return base 
+        #     # rename to avoid collisions 
+        #     rename_map = { c: f"{prefix}_{c}" for c in other.columns if c not in [on] } 
+        #     other = other.rename(columns=rename_map) 
+        #     return base.merge(other, on=on, how="left") 
+            
+        # # Merge user + movie embeddings (explicit + implicit) 
+        # df = _safe_merge(df, self.user_explicit, on="user_id", prefix="exp_user") 
+        # df = _safe_merge(df, self.movie_explicit, on="movie_id", prefix="exp_movie") 
+        # df = _safe_merge(df, self.user_implicit, on="user_id", prefix="imp_user") 
+        # df = _safe_merge(df, self.movie_implicit, on="movie_id", prefix="imp_movie") 
+        # embed_cols = [c for c in df.columns if c.startswith(("exp_", "imp_"))] 
+        # df.dropna(subset=embed_cols, inplace=True)
+
+        # df = df[cols + [col for col in df.columns if col.startswith("genre_")] + [col for col in df.columns if col.startswith("lang_")] + [col for col in df.columns if col.startswith("country_")] + embed_cols ]
+        
+        # print(f"[INFO] Selected {len(df.columns)} final features.")
+        # # print(f"[DEBUG] Final columns: {df.columns.tolist()}")
+        # return df
 
 
 if __name__ == "__main__":
-    data_dir = "data/raw_data/"
+    data_dir = "data/raw_data"
+    embedding_dir = "data/embeddings"
     fb = FeatureBuilder(
-        f"{data_dir}/movies.csv",
-        f"{data_dir}/ratings.csv",
-        f"{data_dir}/users.csv",
-        mode="train"
+                movies_file=f"{data_dir}/movies.csv",
+                ratings_file=f"{data_dir}/ratings.csv",
+                users_file=f"{data_dir}/users.csv",
+                user_explicit_factors=f"{embedding_dir}/user_factors_explicit.csv",
+                movie_explicit_factors=f"{embedding_dir}/movie_factors_explicit.csv",
+                user_implicit_factors=f"{embedding_dir}/user_factors_implicit.csv",
+                movie_implicit_factors=f"{embedding_dir}/movie_factors_implicit.csv",
+                mode="train"
     )
     final_df = fb.build()
-    final_df.to_csv("data/training_data.csv", index=False)
-    print("[INFO] Saved training_data.csv")
+    final_df.to_csv("data/training_data_v2.csv", index=False)
+    print("[INFO] Saved training_data_v2.csv")
