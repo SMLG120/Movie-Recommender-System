@@ -3,20 +3,20 @@ import pandas as pd
 import joblib
 import json
 import numpy as np
+from sklearn.pipeline import Pipeline
 
 from feature_builder import FeatureBuilder
 
 class RecommenderEngine:
-    def __init__(self, model_path="models/xgb_recommender.joblib", movies_file="../data/raw_data/movies.csv", repo_id=None, mode='prod'):
+    def __init__(self, model_dir="src/models_v2", movies_file="data/raw_data/movies.csv"):
         """Initialize service by loading model and movies data"""
-        if mode != 'dev' and repo_id is not None:
-            from huggingface_hub import hf_hub_download
-            filename = model_path.split("/")[-1]
-            print(f"[INFO] Downloading model {filename} from HF repo {repo_id}")
-            model_path = hf_hub_download(repo_id=repo_id, filename=filename)
-            print(f"[INFO] Model downloaded to {model_path}")
 
-        self.model = joblib.load(model_path)
+        preproc_path = f"{model_dir}/preprocessor.joblib"
+        model_path = f"{model_dir}/xgb_model.joblib"
+        preprocessor = joblib.load(preproc_path)
+        xgb_model = joblib.load(model_path)
+        self.model = Pipeline([("preprocessor", preprocessor), ("model", xgb_model)])
+
         self.movies = pd.read_csv(movies_file)
         self.base_user = "http://fall2025-comp585.cs.mcgill.ca:8080/user/"
 
@@ -49,11 +49,12 @@ class RecommenderEngine:
         candidate_df = self.build_inference_df(user_data)
 
         # Run through FeatureBuilder to get features
-        fb = FeatureBuilder(mode="inference")
-        candidate_features = fb.build(df_override=candidate_df)
+        fb = FeatureBuilder(
+        mode="inference")
+        features = fb.build(df_override=candidate_df)
 
-        preds = self.model.predict(candidate_features)
-        candidate_df["pred_score"] = preds
+        preds = self.model.predict(features)
+        top_movies = candidate_df.assign(pred_score=preds).sort_values("pred_score", ascending=False).head(top_n)
 
         # Rank + return top_n
         top_movies = candidate_df.assign(pred_score=preds)
@@ -63,7 +64,11 @@ class RecommenderEngine:
 
 
 if __name__ == "__main__":
-    service = RecommenderEngine(mode="dev")
-    user_id = 13262  # example cold-start
+    import time
+    service = RecommenderEngine()
+    user_id = 39387  # example cold-start
+    time_start = time.time()
     recs = service.recommend(user_id)
+    time_end = time.time()
+    print(f"[INFO] Recommendation time: {time_end - time_start:.2f}s")
     print(f"[RECOMMENDATIONS] {recs}")

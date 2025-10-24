@@ -1,3 +1,4 @@
+import joblib
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -52,7 +53,8 @@ class FeatureBuilder:
         df = self._prepare_base(df_override)
         df = self._coerce_types(df)
         df = self._fill_missing(df)
-        df = self._handle_dates_and_bins(df)
+        df = self._handle_dates_and_bins(df) 
+        df = self._countries_and_languages(df)
         df = self._clip_outliers(df)
         df = self._encode_features(df)
         df = self._merge_embeddings(df)
@@ -127,6 +129,38 @@ class FeatureBuilder:
                     df[f"genre_{genre}"] = df["genres"].str.contains(genre).astype(int)
         return df
 
+
+    def _countries_and_languages(self, df):
+        # Production countries multi-hot 
+        df["production_countries"] = df["production_countries"].fillna("unknown") 
+        for c in df["production_countries"].dropna().unique(): 
+            if not isinstance(c, str): 
+                continue 
+                
+            for country in c.split(","): 
+                country = country.strip() 
+                if country: 
+                    df[f"country_{country}"] = df["production_countries"].fillna("").str.contains(country).astype(int) 
+                    
+        # Spoken languages → normalized multi-hot 
+        def normalize_languages(lang_str): 
+            if pd.isna(lang_str): 
+                return [] 
+            lang_str = lang_str.strip().replace(" ", "")
+            lang_str = lang_str.replace(",", ",").replace(";", ",")
+            langs = [l.strip() for l in lang_str.split(",") if l.strip()] 
+            return set([LANGUAGE_MAP.get(l, l) for l in langs]) 
+        
+        df["normalized_langs"] = df["spoken_languages"].fillna(df["original_language"])
+        df["normalized_langs"] = df["spoken_languages"].apply(normalize_languages) 
+        df["normalized_langs"] = df["normalized_langs"].fillna("und")
+        
+        all_langs = sorted({lang for langs in df["normalized_langs"] for lang in langs}) 
+        for lang in all_langs: 
+            df[f"lang_{lang}"] = df["normalized_langs"].apply(lambda x: int(lang in x))
+        df.drop(columns=["normalized_langs"], inplace=True)
+        return df
+
     def _merge_embeddings(self, df):
         def _safe_merge(base, other, on, prefix):
             if other is None:
@@ -134,10 +168,29 @@ class FeatureBuilder:
             rename_map = {c: f"{prefix}_{c}" for c in other.columns if c != on}
             return base.merge(other.rename(columns=rename_map), on=on, how="left")
 
-        df = _safe_merge(df, self.user_explicit, "user_id", "exp_user")
-        df = _safe_merge(df, self.movie_explicit, "movie_id", "exp_movie")
-        df = _safe_merge(df, self.user_implicit, "user_id", "imp_user")
-        df = _safe_merge(df, self.movie_implicit, "movie_id", "imp_movie")
+        if self.mode == "train":
+            # --- TRAIN MODE ---
+            df = _safe_merge(df, self.user_explicit, "user_id", "exp_user")
+            df = _safe_merge(df, self.movie_explicit, "movie_id", "exp_movie")
+            df = _safe_merge(df, self.user_implicit, "user_id", "imp_user")
+            df = _safe_merge(df, self.movie_implicit, "movie_id", "imp_movie")
+
+        else:
+            # --- INFERENCE MODE ---
+            mean_embeds = joblib.load("src/models/mean_embeddings.joblib")
+
+            # Apply global mean user embeddings
+            for col, val in mean_embeds["exp_user"].items():
+                df[f"exp_user_{col}"] = val
+            for col, val in mean_embeds["imp_user"].items():
+                df[f"imp_user_{col}"] = val
+
+            # Apply global mean movie embeddings
+            for col, val in mean_embeds["exp_movie"].items():
+                df[f"exp_movie_{col}"] = val
+            for col, val in mean_embeds["imp_movie"].items():
+                df[f"imp_movie_{col}"] = val
+
         return df
 
     def _select_final_columns(self, df):
@@ -149,8 +202,30 @@ class FeatureBuilder:
         if self.mode == "train" and "rating" in df:
             cols.append("rating")
         # add all embedding + genre features dynamically
-        extra = [c for c in df.columns if c.startswith(("exp_", "imp_", "genre_"))]
+        extra = [c for c in df.columns if c.startswith(("exp_", "imp_", "genre_", "lang_", "country_"))]
         return df[[c for c in cols if c in df] + extra]
+
+        # def _safe_merge(base, other, on, prefix): 
+        #     if other is None: 
+        #         return base 
+        #     # rename to avoid collisions 
+        #     rename_map = { c: f"{prefix}_{c}" for c in other.columns if c not in [on] } 
+        #     other = other.rename(columns=rename_map) 
+        #     return base.merge(other, on=on, how="left") 
+            
+        # # Merge user + movie embeddings (explicit + implicit) 
+        # df = _safe_merge(df, self.user_explicit, on="user_id", prefix="exp_user") 
+        # df = _safe_merge(df, self.movie_explicit, on="movie_id", prefix="exp_movie") 
+        # df = _safe_merge(df, self.user_implicit, on="user_id", prefix="imp_user") 
+        # df = _safe_merge(df, self.movie_implicit, on="movie_id", prefix="imp_movie") 
+        # embed_cols = [c for c in df.columns if c.startswith(("exp_", "imp_"))] 
+        # df.dropna(subset=embed_cols, inplace=True)
+
+        # df = df[cols + [col for col in df.columns if col.startswith("genre_")] + [col for col in df.columns if col.startswith("lang_")] + [col for col in df.columns if col.startswith("country_")] + embed_cols ]
+        
+        # print(f"[INFO] Selected {len(df.columns)} final features.")
+        # # print(f"[DEBUG] Final columns: {df.columns.tolist()}")
+        # return df
 
 
 if __name__ == "__main__":
@@ -167,5 +242,5 @@ if __name__ == "__main__":
                 mode="train"
     )
     final_df = fb.build()
-    final_df.to_csv("data/training_data_improved.csv", index=False)
-    print("[INFO] Saved training_data_improved.csv")
+    final_df.to_csv("data/training_data_v2.csv", index=False)
+    print("[INFO] Saved training_data_v2.csv")
