@@ -7,6 +7,27 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tqdm import tqdm
 import xgboost as xgb
+# Import trainer.py and run for offline evaluation
+from inference import recommender
+# create a testset 
+# run the cf trainer to get test embeddings
+# run it through the feature builder, pass the test embeddins to the feature builder also 
+# load eaxisting model
+# run prediction and evaluation  
+
+# train
+# start_train = time.time()
+# self.pipeline.fit(X_train, y_train)
+# train_time = time.time() - start_train
+
+# preds = self.pipeline.predict(X_test)
+# infer_time = (time.time() - start_train) / max(len(X_test), 1)
+
+# mse = mean_squared_error(y_test, preds)
+# rmse = np.sqrt(mse)
+# mae = mean_absolute_error(y_test, preds)
+# r2 = r2_score(y_test, preds)
+
 
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
