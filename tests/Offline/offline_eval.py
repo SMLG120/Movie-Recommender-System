@@ -180,6 +180,27 @@ def evaluate_xgboost_ranking(user_ranked, test_df, top_k=20):
     return dfm.mean().to_dict()
 
 
+def evaluate_xgboost_regression(model, X_test, y_true):
+    """Evaluate XGBoost regression metrics"""
+    y_pred = model.predict(X_test)
+    
+    # Calculate metrics
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    mae = mean_absolute_error(y_true, y_pred)
+    
+    # Calculate R² (Coefficient of Determination)
+    y_mean = np.mean(y_true)
+    ss_tot = np.sum((y_true - y_mean) ** 2)
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    r2 = 1 - (ss_res / ss_tot)
+    
+    return {
+        'rmse': float(rmse),  # Convert to float for JSON serialization
+        'mae': float(mae),
+        'r2': float(r2)
+    }
+
+
 # ---------------------------
 # Evaluation
 # ---------------------------
@@ -214,12 +235,163 @@ def evaluate_model(train_df, test_df, user_enc, movie_enc, top_k=20):
         })
     agg["item_item"] = pd.DataFrame(results_ii).mean().to_dict()
 
-    # XGBoost
+    # XGBoost ranking and regression metrics
     xgb_model = train_xgboost(train_df)
+    
+    # Ranking metrics
     user_ranked = rank_xgboost(xgb_model, user_enc, movie_enc, train_df, top_k=top_k)
-    agg["xgboost"] = evaluate_xgboost_ranking(user_ranked, test_df, top_k=top_k)
+    agg["xgboost_ranking"] = evaluate_xgboost_ranking(user_ranked, test_df, top_k=top_k)
+    
+    # Regression metrics
+    X_test = test_df[["user_idx", "movie_idx"]].values
+    y_test = test_df["rating"].values
+    regression_metrics = evaluate_xgboost_regression(xgb_model, X_test, y_test)
+    agg["xgboost_regression"] = regression_metrics
+    
+    # Print regression metrics
+    print("\nXGBoost Regression Metrics:")
+    print(f"RMSE: {regression_metrics['rmse']:.4f}")
+    print(f"MAE: {regression_metrics['mae']:.4f}")
+    print(f"R²: {regression_metrics['r2']:.4f}")
 
     return agg
+
+
+# ---------------------------
+# Hybrid Model Evaluation
+# ---------------------------
+def evaluate_hybrid_model(xgb_model, cf_model, X_test, y_test, alpha=0.5):
+    """Evaluate hybrid model combining XGBoost and collaborative filtering"""
+    # Get predictions from both models
+    xgb_pred = xgb_model.predict(X_test)
+    cf_pred = cf_model.predict(X_test)
+    
+    # Combine predictions with weighted average
+    y_pred = alpha * xgb_pred + (1 - alpha) * cf_pred
+    
+    # Calculate metrics
+    metrics = regression_metrics_extended(y_test, y_pred)
+    metrics.update({
+        'xgb_weight': alpha,
+        'cf_weight': 1 - alpha
+    })
+    
+    return metrics
+
+
+# ---------------------------
+# Model Testing
+# ---------------------------
+def test_xgboost_only(input_path="data/training_data.csv", sample_size=None):
+    """Quick test function to evaluate only XGBoost metrics"""
+    print(f"Loading data from {input_path}...")
+    df = load_data(input_path)
+    
+    if sample_size:
+        print(f"Sampling {sample_size} users...")
+        sampled_users = np.random.choice(df['user_id'].unique(), size=sample_size, replace=False)
+        df = df[df['user_id'].isin(sampled_users)]
+    
+    # Encode features
+    user_enc = LabelEncoder().fit(df["user_id"])
+    movie_enc = LabelEncoder().fit(df["movie_id"])
+    df["user_idx"] = user_enc.transform(df["user_id"])
+    df["movie_idx"] = movie_enc.transform(df["movie_id"])
+    
+    # Split data
+    train_df, test_df = leave_one_out_split(df)
+    
+    # Train XGBoost
+    print("\nTraining XGBoost model...")
+    xgb_model = train_xgboost(train_df)
+    
+    # Prepare test data
+    X_test = test_df[["user_idx", "movie_idx"]].values
+    y_test = test_df["rating"].values
+    
+    # Get metrics
+    metrics = evaluate_xgboost_regression(xgb_model, X_test, y_test)
+    
+    print("\nXGBoost Regression Metrics:")
+    print(f"RMSE: {metrics['rmse']:.4f}")
+    print(f"MAE: {metrics['mae']:.4f}")
+    print(f"R²: {metrics['r2']:.4f}")
+    
+    return metrics
+
+
+def train_hybrid_model(train_df):
+    """Train both XGBoost and CF models"""
+    # Train XGBoost
+    xgb_model = train_xgboost(train_df)
+    
+    # Train CF model
+    from surprise import SVD, Dataset, Reader
+    reader = Reader(rating_scale=(train_df['rating'].min(), train_df['rating'].max()))
+    data = Dataset.load_from_df(train_df[['user_idx', 'movie_idx', 'rating']], reader)
+    cf_model = SVD(n_factors=100, n_epochs=20, lr_all=0.005, reg_all=0.02)
+    cf_model.fit(data.build_full_trainset())
+    
+    return xgb_model, cf_model
+
+
+def evaluate_models(train_df, test_df, sample_size=None):
+    """Evaluate XGBoost and Hybrid models with detailed metrics"""
+    if sample_size:
+        test_df = test_df.sample(n=min(sample_size, len(test_df)), random_state=42)
+    
+    # Prepare test data
+    X_test = test_df[["user_idx", "movie_idx"]].values
+    y_test = test_df["rating"].values
+    
+    # Train models
+    print("Training XGBoost model...")
+    xgb_model = train_xgboost(train_df)
+    xgb_pred = xgb_model.predict(X_test)
+    
+    print("Training Hybrid model...")
+    xgb_model, cf_model = train_hybrid_model(train_df)
+    
+    # Get CF predictions
+    cf_pred = []
+    for user_idx, movie_idx in X_test:
+        pred = cf_model.predict(int(user_idx), int(movie_idx)).est
+        cf_pred.append(pred)
+    cf_pred = np.array(cf_pred)
+    
+    # Hybrid predictions (50-50 blend)
+    hybrid_pred = 0.5 * xgb_pred + 0.5 * cf_pred
+    
+    # Calculate metrics
+    metrics = {
+        'xgboost': evaluate_xgboost_regression(xgb_model, X_test, y_test),
+        'cf': evaluate_xgboost_regression(cf_model, X_test, y_test),
+        'hybrid': evaluate_xgboost_regression(xgb_model, X_test, y_test)
+    }
+    
+    # Print detailed metrics
+    print("\n=== Model Comparison ===")
+    for model_name, model_metrics in metrics.items():
+        print(f"\n{model_name.upper()} Metrics:")
+        print(f"RMSE: {model_metrics['rmse']:.4f}")
+        print(f"MAE: {model_metrics['mae']:.4f}")
+        print(f"R²: {model_metrics['r2']:.4f}")
+    
+    return metrics
+
+
+def test_models(input_path="data/training_data.csv", sample_size=None):
+    """Quick test function for model comparison"""
+    print(f"Loading data from {input_path}...")
+    df = load_data(input_path)
+    
+    # Encode features
+    df, user_enc, movie_enc = feature_encode(df)
+    train_df, test_df = leave_one_out_split(df)
+    
+    # Evaluate models
+    metrics = evaluate_models(train_df, test_df, sample_size)
+    return metrics
 
 
 # ---------------------------
@@ -230,6 +402,7 @@ def main():
     parser.add_argument("--input", default="data/training_data.csv")
     parser.add_argument("--output", default="results/offline_eval_with_xgb.json")
     parser.add_argument("--k", type=int, default=20)
+    parser.add_argument('--xgboost', action='store_true', help='Include XGBoost regression evaluation')
     args = parser.parse_args()
 
     # Create results directory
@@ -245,10 +418,40 @@ def main():
     metrics = evaluate_model(train_df, test_df, user_enc, movie_enc, top_k=args.k)
     print(json.dumps(metrics, indent=2))
 
+    # Add XGBoost evaluation
+    if args.xgboost:
+        print("\nEvaluating XGBoost regression metrics...")
+        X_test = np.column_stack([
+            test_df['user_idx'].values,
+            test_df['movie_idx'].values
+        ])
+        y_test = test_df['rating'].values
+        
+        xgb_model = train_xgboost(train_df)
+        xgb_metrics = evaluate_xgboost_regression(xgb_model, X_test, y_test)
+        metrics['xgboost_regression'] = xgb_metrics
+        print("\nXGBoost Regression Metrics:")
+        print(f"RMSE: {xgb_metrics['rmse']:.4f}")
+        print(f"MAE: {xgb_metrics['mae']:.4f}")
+        print(f"R²: {xgb_metrics['r2']:.4f}")
+    
     with open(args.output, "w") as f:
         json.dump(metrics, f, indent=2)
     print(f"Saved results to {args.output}")
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == '--test-xgb':
+        # Parse optional arguments
+        sample_size = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        input_path = sys.argv[3] if len(sys.argv) > 3 else "data/training_data.csv"
+        
+        test_xgboost_only(input_path, sample_size)
+    elif len(sys.argv) > 1 and sys.argv[1] == '--compare-models':
+        sample_size = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        input_path = sys.argv[3] if len(sys.argv) > 3 else "data/training_data.csv"
+        
+        test_models(input_path, sample_size)
+    else:
+        main()
