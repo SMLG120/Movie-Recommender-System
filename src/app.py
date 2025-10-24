@@ -19,7 +19,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from src.inference import RecommenderEngine  # noqa: E402
+from inference import RecommenderEngine  
 
 # ------------------------------------------------------------------------------
 # Config
