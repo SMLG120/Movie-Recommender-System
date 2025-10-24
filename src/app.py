@@ -59,10 +59,13 @@ HITRATE_HITS = Counter(
     "Hits@K that match served K-list"
 )
 
-# Online error aggregates for ratings (compute MAE/RMSE in PromQL)
+# Online error aggregates for ratings 
 MAE_SUM = Counter("model_mae_sum", "Sum of absolute errors |y - y_hat|")
 RMSE_SSE = Counter("model_rmse_sse", "Sum of squared errors (y - y_hat)^2")
 ERR_COUNT = Counter("model_err_count", "Count of labeled events contributing to errors")
+
+for c in (RECO_SERVED, CTR_HITS, HITRATE_HITS, MAE_SUM, RMSE_SSE, ERR_COUNT):
+    c.inc(0)
 
 # ------------------------------------------------------------------------------
 # Load model

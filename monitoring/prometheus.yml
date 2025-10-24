@@ -6,15 +6,11 @@ scrape_configs:
   # Scrape your Flask API (running on the host at port 8080)
   - job_name: "recommender"
     static_configs:
-      - targets: ["host.docker.internal:8080"]
+      - targets: ["movie-reco-api:8080"]
         labels:
           service: "recommender-api"
-  # If your API runs in Docker on the same network, use the container name instead:
-  # - job_name: "recommender"
-  #   static_configs:
-  #     - targets: ["recommender:8080"]
+          
   - job_name: "kafka-exporter"
     static_configs:
       - targets: ["kafka-exporter:9308"]
 
-        

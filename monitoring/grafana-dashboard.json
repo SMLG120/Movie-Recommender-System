@@ -85,7 +85,7 @@
       "type": "timeseries",
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 19 },
       "targets": [
-        { "expr": "100 * rate(model_ctr_at_k_total[5m]) / rate(model_reco_served_total[5m])", "legendFormat": "CTR@K" }
+        { "expr": "100 * ( sum(rate(model_ctr_at_k_total[5m])) OR on() vector(0) ) / clamp_min( sum(rate(model_reco_served_total[5m])), 1e-9 )", "legendFormat": "CTR@K" }
       ],
       "fieldConfig": { "defaults": { "unit": "percent" } }
     },
@@ -95,7 +95,7 @@
       "type": "timeseries",
       "gridPos": { "h": 6, "w": 8, "x": 8, "y": 19 },
       "targets": [
-        { "expr": "100 * rate(model_hits_at_k_total[5m]) / rate(model_reco_served_total[5m])", "legendFormat": "HitRate@K" }
+        { "expr": "100 * (sum(rate(model_hits_at_k_total[5m])) OR on() vector(0) ) / clamp_min( sum(rate(model_reco_served_total[5m])), 1e-9 )", "legendFormat": "HitRate@K" }
       ],
       "fieldConfig": { "defaults": { "unit": "percent" } }
     },
@@ -105,8 +105,8 @@
       "type": "timeseries",
       "gridPos": { "h": 6, "w": 8, "x": 16, "y": 19 },
       "targets": [
-        { "expr": "sum(rate(model_mae_sum[5m])) / sum(rate(model_err_count[5m]))", "legendFormat": "MAE" },
-        { "expr": "sqrt( sum(rate(model_rmse_sse[5m])) / sum(rate(model_err_count[5m])) )", "legendFormat": "RMSE" }
+        { "expr": "(sum(rate(model_mae_sum[5m])) OR on() vector(0) ) / clamp_min( sum(rate(model_err_count[5m])), 1e-9 )", "legendFormat": "MAE" },
+        { "expr": "sqrt((sum(rate(model_rmse_sse[5m])) OR on() vector(0) ) / clamp_min( sum(rate(model_err_count[5m])), 1e-9 ))", "legendFormat": "RMSE" }
       ]
     }
   ]
