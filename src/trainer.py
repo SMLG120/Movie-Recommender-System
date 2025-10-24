@@ -226,6 +226,6 @@ if __name__ == "__main__":
     df = pd.read_csv(train_data)
     tuning_df = df.sample(frac=0.4, random_state=42)
 
-    trainer.tune(tuning_file="src/train_results_2/tuning_results.json", tune_df=tuning_df)
+    trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
     trainer.train()
-    trainer.save(output_dir="src/models_2")
+    trainer.save(output_dir="src/models")
