@@ -64,7 +64,7 @@ class FeatureBuilder:
 
 
     def _prepare_base(self, df_override):
-        if self.mode == "train":
+        if self.mode == #":
             if self.ratings is None or self.users is None or self.movies is None:
                 raise ValueError("Missing one of ratings/users/movies for training mode.")
             df = self.ratings.merge(self.users, on="user_id", how="left")
@@ -204,28 +204,6 @@ class FeatureBuilder:
         # add all embedding + genre features dynamically
         extra = [c for c in df.columns if c.startswith(("exp_", "imp_", "genre_", "lang_", "country_"))]
         return df[[c for c in cols if c in df] + extra]
-
-        # def _safe_merge(base, other, on, prefix): 
-        #     if other is None: 
-        #         return base 
-        #     # rename to avoid collisions 
-        #     rename_map = { c: f"{prefix}_{c}" for c in other.columns if c not in [on] } 
-        #     other = other.rename(columns=rename_map) 
-        #     return base.merge(other, on=on, how="left") 
-            
-        # # Merge user + movie embeddings (explicit + implicit) 
-        # df = _safe_merge(df, self.user_explicit, on="user_id", prefix="exp_user") 
-        # df = _safe_merge(df, self.movie_explicit, on="movie_id", prefix="exp_movie") 
-        # df = _safe_merge(df, self.user_implicit, on="user_id", prefix="imp_user") 
-        # df = _safe_merge(df, self.movie_implicit, on="movie_id", prefix="imp_movie") 
-        # embed_cols = [c for c in df.columns if c.startswith(("exp_", "imp_"))] 
-        # df.dropna(subset=embed_cols, inplace=True)
-
-        # df = df[cols + [col for col in df.columns if col.startswith("genre_")] + [col for col in df.columns if col.startswith("lang_")] + [col for col in df.columns if col.startswith("country_")] + embed_cols ]
-        
-        # print(f"[INFO] Selected {len(df.columns)} final features.")
-        # # print(f"[DEBUG] Final columns: {df.columns.tolist()}")
-        # return df
 
 
 if __name__ == "__main__":

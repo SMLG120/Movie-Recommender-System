@@ -49,8 +49,7 @@ class RecommenderEngine:
         candidate_df = self.build_inference_df(user_data)
 
         # Run through FeatureBuilder to get features
-        fb = FeatureBuilder(
-        mode="inference")
+        fb = FeatureBuilder(mode="inference")
         features = fb.build(df_override=candidate_df)
 
         preds = self.model.predict(features)
