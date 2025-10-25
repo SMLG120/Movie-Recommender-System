@@ -11,9 +11,8 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from flask import Flask, request, jsonify, Response
-from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST, start_http_server
-from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
-
+from prometheus_client import Counter
+from prometheus_flask_exporter import PrometheusMetrics
 
 # Local imports (paths set for Docker and local runs)
 import sys
@@ -37,10 +36,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("reco-api")
 
-# Availability metrics (HTTP requests, latency, errors) exposed at /metrics
-metrics = GunicornPrometheusMetrics(app, group_by='endpoint')  # or 'url_rule'
-metrics.info("service_info", "Recommender service info", version="1.0.0")
-start_http_server(9100)
+metrics = PrometheusMetrics(app, path="/metrics", group_by="endpoint")
 
 # ------------------------------------------------------------------------------
 # Model-quality metrics (reused from Milestone 2)
@@ -92,10 +88,6 @@ LAST_SERVED: Dict[int, List[str]] = {}
 # ------------------------------------------------------------------------------
 # Routes
 # ------------------------------------------------------------------------------
-@app.route("/metrics")
-def metrics_endpoint():
-    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
-
 @app.route("/", methods=["GET"])
 def root():
     return Response("Movie Recommender API", mimetype="text/plain")
