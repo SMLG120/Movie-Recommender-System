@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'recommender_system'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'kafka_monitoring'
+    static_configs:
+      - targets: ['localhost:9308']
+
+rules:
+  - alert: HighErrorRate
+    expr: rate(recommendation_errors_total[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+  
+  - alert: LowModelQuality
+    expr: avg_recommendation_satisfaction < 0.7
+    for: 15m
+    labels:
+      severity: warning
