@@ -84,33 +84,6 @@ class KafkaLogCollector:
         self.logger.info(f"Finished consuming after {self.duration}s, total {processed} messages.")
         return output_log
 
-    # def collect_user_logs(self, user_id: str, output_log=None, max_messages=500):
-    #     """
-    #     Stream and collect only logs containing a given user_id.
-    #     Returns path to the filtered log file.
-    #     """
-    #     output_log = output_log or os.path.join(self.log_dir, f"user_{user_id}_logs.log")
-    #     self.logger.info(f"[USER LOGS] Collecting logs for user {user_id} into {output_log}")
-    #     consumer = self._consumer_factory()
-    #     consumer.subscribe([self.topic])
-
-    #     self.logger.info("[USER LOGS] Starting collection...")
-    #     processed = 0
-    #     with open(output_log, "w", encoding="utf-8") as f:
-    #         while processed < max_messages:
-    #             msg = consumer.poll(1.0)
-    #             if not msg or msg.error():
-    #                 continue
-    #             line = msg.value().decode("utf-8")
-    #             if f",{user_id}," in line:   # fast substring match
-    #                 f.write(line + "\n")
-    #                 processed += 1
-
-    #     consumer.close()
-    #     self.logger.info(f"[USER LOGS] Collected {processed} lines for user {user_id}")
-    #     return output_log
-
-
 
 # 2. LogParser — responsible for extracting IDs and ratings
 class LogParser:
