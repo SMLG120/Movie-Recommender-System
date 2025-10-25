@@ -21,6 +21,12 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from src.inference import RecommenderEngine  
 
+from prometheus_client import Histogram
+# Extend default buckets up to 5 minutes
+Histogram.DEFAULT_BUCKETS = (
+    0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60, 90, 120, 180, 300
+)
+
 # Config
 PORT = int(os.getenv("PORT", "8080"))
 MODEL_PATH = os.getenv("MODEL_PATH", "src/models")

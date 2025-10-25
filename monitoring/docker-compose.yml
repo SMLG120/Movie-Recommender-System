@@ -8,12 +8,14 @@ services:
     image: movie-recommender:latest     
     container_name: movie-reco-api
     command: ["gunicorn",
-        "-w","1",
-        "-b","0.0.0.0:8080",
-        "--timeout","300",          
-        "--graceful-timeout","60",  
-        "--keep-alive","5",
-        "src.app:app"]
+      "--worker-class","gthread",
+      "--threads","8",          
+      "-w","1",                 
+      "-b","0.0.0.0:8080",
+      "--timeout","300",
+      "--graceful-timeout","60",
+      "--keep-alive","5",
+      "src.app:app"]
     ports: ["8080:8080"] 
     environment:
       - PORT=8080

@@ -48,7 +48,7 @@ def worker(n_users, topn_choices, click_p, rate_p):
     # /recommend
     try:
         r = requests.get(f"{API_URL}/recommend",
-                         params={"user_id": user_id, "top_n": top_n}, timeout=180)
+                         params={"user_id": user_id, "top_n": top_n}, timeout=600)
         recs = parse_recs(r)
     except Exception as e:
         return f"user={user_id} rec_err={e}"
