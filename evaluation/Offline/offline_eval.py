@@ -22,9 +22,6 @@ from src.trainer import Trainer
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 
-# ===============================
-# Metric helpers
-# ===============================
 def regression_metrics(y_true, y_pred):
     """Compute regression metrics."""
     mse = mean_squared_error(y_true, y_pred)
@@ -45,9 +42,6 @@ def classification_metrics(y_true, y_pred, threshold=3):
     return {"precision": precision, "recall": recall, "f1": f1, "accuracy": accuracy}
 
 
-# ===============================
-# Main offline evaluation function
-# ===============================
 def evaluate(
     preproc_path="src/models/preprocessor.joblib",
     model_path="src/models/xgb_model.joblib",
@@ -120,15 +114,12 @@ def evaluate(
     return results, y_test, preds
 
 
-# ===============================
-# Run directly for testing
-# ===============================
 if __name__ == "__main__":
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     preproc_path = os.path.join(project_root, "src", "models", "preprocessor.joblib")
     model_path = os.path.join(project_root, "src", "models", "xgb_model.joblib")
     eval_data = os.path.join(project_root, "data", "training_data_v2.csv")
-    results_path = os.path.join(project_root, "evaluation", "Offline", "evaluation_results.json")
+    results_path = os.path.join(project_root, "tests", "Offline", "evaluation_results.json")
 
     evaluate(
         preproc_path=preproc_path,
