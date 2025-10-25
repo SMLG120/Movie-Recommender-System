@@ -160,13 +160,32 @@ class Trainer:
         self._log(f"[INFO] Tuning results appended to {tuning_file}")
         return self.best_params_
 
+    def _evaluate(self, model, X_test, y_test):
+        preds = self.pipeline.predict(X_test)
+        infer_time = (time.time() - start_train) / max(len(X_test), 1)
+
+        mse = mean_squared_error(y_test, preds)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(y_test, preds)
+        r2 = r2_score(y_test, preds)
+
+        results = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "metrics": {"rmse": rmse, "mae": mae, "r2": r2},
+            "train_time_sec": round(train_time, 3),
+            "avg_infer_time_sec": round(infer_time, 6),
+            "train_samples": int(len(X_train)),
+            "test_samples": int(len(X_test)),
+        }
+        return results, y_test, preds
+
 
     def train(self, tuning_params=None):
         """Train pipeline with injected or default params."""
         if self.df is None:
             self.load_data()
 
-        self.df = self.de.sample(frac=1).reset_index(drop=True)  # shuffle
+        self.df = self.df.sample(frac=1).reset_index(drop=True)  # shuffle
 
         X, y, preprocessor, _, _ = self.prepare_features()
         X_train, X_test, y_train, y_test = train_test_split(
@@ -188,22 +207,7 @@ class Trainer:
         self.pipeline.fit(X_train, y_train)
         train_time = time.time() - start_train
 
-        preds = self.pipeline.predict(X_test)
-        infer_time = (time.time() - start_train) / max(len(X_test), 1)
-
-        mse = mean_squared_error(y_test, preds)
-        rmse = np.sqrt(mse)
-        mae = mean_absolute_error(y_test, preds)
-        r2 = r2_score(y_test, preds)
-
-        results = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "metrics": {"rmse": rmse, "mae": mae, "r2": r2},
-            "train_time_sec": round(train_time, 3),
-            "avg_infer_time_sec": round(infer_time, 6),
-            "train_samples": int(len(X_train)),
-            "test_samples": int(len(X_test)),
-        }
+        results, y_test, preds = self._evaluate(self.pipeline, X_test, y_test)
 
         self._log(f"[RESULTS] RMSE={rmse:.3f}, MAE={mae:.3f}, R2={r2:.3f}")
         self._write_file(self.metrics_out, results)
@@ -222,12 +226,12 @@ class Trainer:
 if __name__ == "__main__":
     train_data = "data/training_data_v2.csv"
     trainer = Trainer(data_file=train_data, target="rating")
-    output_dir = "src/train_results_4/"
+    output_dir = "src/train_results/"
     os.makedirs(output_dir, exist_ok=True)
 
     df = pd.read_csv(train_data)
-    tuning_df = df.sample()
+    tuning_df = df.sample(frac=0.4, random_state=42).reset_index(drop=True)
 
-    trainer.tune(tuning_file="src/train_results_4/tuning_results.json", tune_df=tuning_df)
+    trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
     trainer.train()
-    trainer.save(output_dir="src/models_v4")
+    trainer.save(output_dir="src/models")

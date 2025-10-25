@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline
 from feature_builder import FeatureBuilder
 
 class RecommenderEngine:
-    def __init__(self, model_dir="src/models_v2", movies_file="data/raw_data/movies.csv"):
+    def __init__(self, model_dir="src/models", movies_file="data/raw_data/movies.csv"):
         """Initialize service by loading model and movies data"""
 
         preproc_path = f"{model_dir}/preprocessor.joblib"
@@ -49,8 +49,7 @@ class RecommenderEngine:
         candidate_df = self.build_inference_df(user_data)
 
         # Run through FeatureBuilder to get features
-        fb = FeatureBuilder(
-        mode="inference")
+        fb = FeatureBuilder(mode="inference")
         features = fb.build(df_override=candidate_df)
 
         preds = self.model.predict(features)
@@ -66,7 +65,7 @@ class RecommenderEngine:
 if __name__ == "__main__":
     import time
     service = RecommenderEngine()
-    user_id = 39387  # example cold-start
+    user_id = 17588 #39387  # example cold-start
     time_start = time.time()
     recs = service.recommend(user_id)
     time_end = time.time()
