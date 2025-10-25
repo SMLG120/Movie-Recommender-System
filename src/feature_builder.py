@@ -64,7 +64,7 @@ class FeatureBuilder:
 
 
     def _prepare_base(self, df_override):
-        if self.mode == #":
+        if self.mode == "train":
             if self.ratings is None or self.users is None or self.movies is None:
                 raise ValueError("Missing one of ratings/users/movies for training mode.")
             df = self.ratings.merge(self.users, on="user_id", how="left")
