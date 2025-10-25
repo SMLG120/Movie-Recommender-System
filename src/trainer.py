@@ -252,4 +252,4 @@ if __name__ == "__main__":
 
     trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
     trainer.train()
-    trainer.save(output_dir="src/models_v2")
+    trainer.save(output_dir="src/models")
