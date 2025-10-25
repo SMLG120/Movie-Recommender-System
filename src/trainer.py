@@ -166,6 +166,8 @@ class Trainer:
         if self.df is None:
             self.load_data()
 
+        self.df = self.de.sample(frac=1).reset_index(drop=True)  # shuffle
+
         X, y, preprocessor, _, _ = self.prepare_features()
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=self.test_size, random_state=self.random_state
@@ -220,12 +222,12 @@ class Trainer:
 if __name__ == "__main__":
     train_data = "data/training_data_v2.csv"
     trainer = Trainer(data_file=train_data, target="rating")
-    output_dir = "src/train_results/"
+    output_dir = "src/train_results_4/"
     os.makedirs(output_dir, exist_ok=True)
 
     df = pd.read_csv(train_data)
-    tuning_df = df.sample(frac=0.4, random_state=42)
+    tuning_df = df.sample()
 
-    trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
+    trainer.tune(tuning_file="src/train_results_4/tuning_results.json", tune_df=tuning_df)
     trainer.train()
-    trainer.save(output_dir="src/models")
+    trainer.save(output_dir="src/models_v4")
