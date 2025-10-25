@@ -43,7 +43,7 @@ Additional columns (`id`, `title`, `overview`, etc.) are ignored since they’re
 
 **2. Multi-Hot Expansion**
 - `genres`, `production_countries`, and `spoken_languages` expanded into binary columns (`genre_Action`, `country_USA`, etc.)
-- `spoken_languages` normalized using a small `LANGUAGE_MAP` dictionary  
+- `spoken_languages` normalized using a `LANGUAGE_MAP` dictionary  
 
 **3. Age Binning**
 - Discretized into 5 brackets: `[0-18, 19-25, 26-35, 36-50, 50+]`

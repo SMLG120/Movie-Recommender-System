@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import json
@@ -12,7 +11,7 @@ class OnlineEvaluator:
     Tracks recommendations, interactions, response times, errors, and model quality.
     """
 
-    def __init__(self, log_path='logs/online_metrics.json', alert_threshold=0.1):
+    def __init__(self, log_path='Testing/Online/logs/online_metrics.json', alert_threshold=0.1):
         self.log_path = log_path
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
 

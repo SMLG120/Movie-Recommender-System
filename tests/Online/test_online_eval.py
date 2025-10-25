@@ -17,7 +17,7 @@ def main():
     evaluator.log_interaction(user_id="u3", item_id="m5", action_type="watch", watch_time=15)
     
     # --- Log a model deployment ---
-    evaluator.log_model_deployment("v1.0", "collaborative_filtering")
+    evaluator.log_model_deployment("v1.0", "XGBoost")
 
     
     # --- Log recommendation quality metrics ---
