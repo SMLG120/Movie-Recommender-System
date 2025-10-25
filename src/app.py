@@ -21,26 +21,24 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from src.inference import RecommenderEngine  
 
-# ------------------------------------------------------------------------------
+
 # Config
-# ------------------------------------------------------------------------------
 PORT = int(os.getenv("PORT", "8080"))
-MODEL_PATH = os.getenv("MODEL_PATH", "src/models/xgb_model.joblib")
+MODEL_PATH = os.getenv("MODEL_PATH", "src/models")
 MOVIES_FILE = os.getenv("MOVIES_FILE", "data/raw_data/movies.csv")
 MODE = os.getenv("MODE", "prod")  # 'dev' or 'prod'
 
-# ------------------------------------------------------------------------------
+
 # App + Logging
-# ------------------------------------------------------------------------------
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("reco-api")
 
 metrics = PrometheusMetrics(app, path="/metrics", group_by="endpoint")
 
-# ------------------------------------------------------------------------------
-# Model-quality metrics (reused from Milestone 2)
-# ------------------------------------------------------------------------------
+
+# Model-quality metrics 
+
 # Recommendations served (denominator for CTR/HitRate)
 RECO_SERVED = Counter(
     "model_reco_served_total",
@@ -65,12 +63,10 @@ ERR_COUNT = Counter("model_err_count", "Count of labeled events contributing to 
 for c in (RECO_SERVED, CTR_HITS, HITRATE_HITS, MAE_SUM, RMSE_SSE, ERR_COUNT):
     c.inc(0)
 
-# ------------------------------------------------------------------------------
 # Load model
-# ------------------------------------------------------------------------------
 try:
     recommender_engine = RecommenderEngine(
-        model_path=MODEL_PATH,
+        model_dir=MODEL_PATH,
         movies_file=MOVIES_FILE,
         mode=MODE
     )
@@ -79,15 +75,11 @@ except Exception as e:
     logger.exception("Failed to load RecommenderEngine: %s", e)
     recommender_engine = None
 
-# ------------------------------------------------------------------------------
-# Simple in-memory cache of "last served recs" per user (for CTR/HitRate demo)
-# NOTE: Replace with your real event pipeline if you already log these.
-# ------------------------------------------------------------------------------
+
 LAST_SERVED: Dict[int, List[str]] = {}
 
-# ------------------------------------------------------------------------------
+
 # Routes
-# ------------------------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def root():
     return Response("Movie Recommender API", mimetype="text/plain")
@@ -114,15 +106,9 @@ def health():
 def recommend():
     """
     Serve recommendations.
-    Query params:
-      - user_id (int, required)
-      - top_n (int, default=10)
-    Response:
-      { "user_id": ..., "recommendations": ["movie_id1", ...] }
     """
     if recommender_engine is None:
         return jsonify({"error": "model not loaded"}), 503
-
     try:
         user_id = int(request.args.get("user_id", ""))
     except Exception:
@@ -144,9 +130,6 @@ def recommend():
 def event_click():
     """
     Record a click/engagement event.
-    Body JSON:
-      { "user_id": 123, "item_id": "m_42" }
-    If item_id is in the last served K-list for that user, we count a hit.
     """
     data: Dict[str, Any] = request.get_json(silent=True) or {}
     try:
@@ -166,9 +149,6 @@ def event_click():
 def event_rating():
     """
     Record a rating with the predicted score to compute online errors.
-    Body JSON:
-      { "user_id": 123, "item_id": "m_42", "rating": 4.0, "predicted": 3.5 }
-    If you have a per-item scorer, you can omit "predicted" and compute it; otherwise pass it here.
     """
     data: Dict[str, Any] = request.get_json(silent=True) or {}
     try:
@@ -176,11 +156,8 @@ def event_rating():
     except Exception:
         return jsonify({"error": "rating (float) is required"}), 400
 
-    # Prefer predicted score from client/event join; avoid recomputing offline
     pred_raw: Optional[float] = data.get("predicted")
     if pred_raw is None:
-        # If your engine supports per-item scoring, you could do it here.
-        # For simplicity (and to avoid heavy inference), require the client to send it.
         return jsonify({"error": "predicted (float) is required for online error"}), 400
 
     try:
