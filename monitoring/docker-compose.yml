@@ -7,7 +7,13 @@ services:
       dockerfile: docker/Dockerfile 
     image: movie-recommender:latest     
     container_name: movie-reco-api
-    command: ["gunicorn","-w","1","-b","0.0.0.0:8080","src.app:app"]
+    command: ["gunicorn",
+        "-w","1",
+        "-b","0.0.0.0:8080",
+        "--timeout","300",          
+        "--graceful-timeout","60",  
+        "--keep-alive","5",
+        "src.app:app"]
     ports: ["8080:8080"] 
     environment:
       - PORT=8080

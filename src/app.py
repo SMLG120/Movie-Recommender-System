@@ -21,13 +21,10 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from src.inference import RecommenderEngine  
 
-
 # Config
 PORT = int(os.getenv("PORT", "8080"))
 MODEL_PATH = os.getenv("MODEL_PATH", "src/models")
 MOVIES_FILE = os.getenv("MOVIES_FILE", "data/raw_data/movies.csv")
-MODE = os.getenv("MODE", "prod")  # 'dev' or 'prod'
-
 
 # App + Logging
 app = Flask(__name__)
@@ -39,26 +36,12 @@ metrics = PrometheusMetrics(app, path="/metrics", group_by="endpoint")
 
 # Model-quality metrics 
 
-# Recommendations served (denominator for CTR/HitRate)
-RECO_SERVED = Counter(
-    "model_reco_served_total",
-    "Recommendations served to users"
-)
-
-# Click/engagements on served lists (numerators)
-CTR_HITS = Counter(
-    "model_ctr_at_k_total",
-    "Clicks/engagements that match served K-list"
-)
-HITRATE_HITS = Counter(
-    "model_hits_at_k_total",
-    "Hits@K that match served K-list"
-)
-
-# Online error aggregates for ratings 
-MAE_SUM = Counter("model_mae_sum", "Sum of absolute errors |y - y_hat|")
-RMSE_SSE = Counter("model_rmse_sse", "Sum of squared errors (y - y_hat)^2")
-ERR_COUNT = Counter("model_err_count", "Count of labeled events contributing to errors")
+RECO_SERVED  = Counter("model_reco_served_total", "Recommendations served to users", registry=metrics.registry)
+CTR_HITS     = Counter("model_ctr_at_k_total", "Clicks/engagements that match served K-list", registry=metrics.registry)
+HITRATE_HITS = Counter("model_hits_at_k_total", "Hits@K that match served K-list", registry=metrics.registry)
+MAE_SUM      = Counter("model_mae_sum", "Sum of absolute errors |y - y_hat|", registry=metrics.registry)
+RMSE_SSE     = Counter("model_rmse_sse", "Sum of squared errors (y - y_hat)^2", registry=metrics.registry)
+ERR_COUNT    = Counter("model_err_count", "Count of labeled events contributing to errors", registry=metrics.registry)
 
 for c in (RECO_SERVED, CTR_HITS, HITRATE_HITS, MAE_SUM, RMSE_SSE, ERR_COUNT):
     c.inc(0)
@@ -66,9 +49,8 @@ for c in (RECO_SERVED, CTR_HITS, HITRATE_HITS, MAE_SUM, RMSE_SSE, ERR_COUNT):
 # Load model
 try:
     recommender_engine = RecommenderEngine(
-        model_dir=MODEL_PATH,
+        model_dir= MODEL_PATH,
         movies_file=MOVIES_FILE,
-        mode=MODE
     )
     logger.info("RecommenderEngine loaded successfully.")
 except Exception as e:
