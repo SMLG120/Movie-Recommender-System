@@ -14,6 +14,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import sys
+import unittest
+import os
 
 # Ensure the offline_eval module is importable as a regular module
 ROOT = Path(__file__).parent
@@ -163,5 +165,47 @@ def run_all_tests():
     return results
 
 
+class TestOfflineEvaluation(unittest.TestCase):
+    def setUp(self):
+        self.preproc_path = "../../models/preprocessor.joblib"
+        self.model_path = "../../models/xgb_model_only.joblib"
+        self.eval_data = "../../data/training_data_v2.csv"
+        self.results_path = "../../evaluation_results.json"
+        
+    def test_evaluation(self):
+        # Ensure model and data files exist
+        self.assertTrue(os.path.exists(self.preproc_path), "Preprocessor file not found")
+        self.assertTrue(os.path.exists(self.model_path), "Model file not found")
+        self.assertTrue(os.path.exists(self.eval_data), "Evaluation data file not found")
+        
+        # Run evaluation
+        results, y_test, preds = offline_eval.evaluate(
+            self,
+            preproc_path=self.preproc_path,
+            model_path=self.model_path,
+            eval_data=self.eval_data,
+            results_path=self.results_path
+        )
+        
+        # Check if results contain all expected metrics
+        self.assertIn("regression_metrics", results)
+        self.assertIn("classification_metrics", results)
+        self.assertIn("inference_time", results)
+        
+        # Check regression metrics
+        reg_metrics = results["regression_metrics"]
+        for metric in ["mse", "rmse", "mae", "r2"]:
+            self.assertIn(metric, reg_metrics)
+            
+        # Check classification metrics
+        class_metrics = results["classification_metrics"]
+        for metric in ["precision", "recall", "f1", "accuracy"]:
+            self.assertIn(metric, class_metrics)
+            
+        # Check if results were saved
+        self.assertTrue(os.path.exists(self.results_path))
+
+
 if __name__ == '__main__':
     run_all_tests()
+    unittest.main()
