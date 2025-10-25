@@ -1,4 +1,4 @@
-import os, json, time, datetime, joblib
+import os, json, time, datetime, joblib, gc
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -59,7 +59,7 @@ class Trainer:
             raise ValueError(f"Unsupported output format: {path}")
 
     def _default_xgb_factory(self, **params):
-        return xgb.XGBRegressor(objective="reg:squarederror", eval_metric="rmse", n_jobs=-1, **params)
+        return xgb.XGBRegressor(objective="reg:squarederror", eval_metric="rmse", tree_method="hist", n_jobs=2, **params)
 
     def load_data(self):
         self.df = self._read_csv(self.data_file)
@@ -68,6 +68,9 @@ class Trainer:
 
     def prepare_features(self):
         categorical = ["age_bin", "occupation", "gender", "original_language"]
+        for col in df.select_dtypes(include=['float64', 'int64']):
+            df[col] = pd.to_numeric(df[col], downcast='float')
+
         all_cols = self.df.columns.tolist()
         ignore = set(["user_id", "movie_id", self.target] + categorical)
         numeric = [c for c in all_cols if c not in ignore]
@@ -104,6 +107,8 @@ class Trainer:
 
         X, y, preprocessor, _, _ = self.prepare_features()
         X_train, _, y_train, _ = train_test_split(X, y, test_size=self.test_size, random_state=self.random_state)
+        for col in X_train.select_dtypes(include=["int", "float"]).columns:
+            X_train[col] = X_train[col].astype(np.float32)
 
         param_distributions = param_distributions or {
             "model__n_estimators": sp_randint(50, 200) if lightweight else sp_randint(100, 400),
@@ -160,9 +165,13 @@ class Trainer:
         self._log(f"[INFO] Tuning results appended to {tuning_file}")
         return self.best_params_
 
-    def _evaluate(self, model, X_test, y_test):
+    def _evaluate(self, X_test, y_test, model=None):
+        if model:
+            self.pipeline = model
+
+        start_infer = time.time()
         preds = self.pipeline.predict(X_test)
-        infer_time = (time.time() - start_train) / max(len(X_test), 1)
+        infer_time = (time.time() - start_infer) / max(len(X_test), 1)
 
         mse = mean_squared_error(y_test, preds)
         rmse = np.sqrt(mse)
@@ -172,9 +181,7 @@ class Trainer:
         results = {
             "timestamp": datetime.datetime.now().isoformat(),
             "metrics": {"rmse": rmse, "mae": mae, "r2": r2},
-            "train_time_sec": round(train_time, 3),
             "avg_infer_time_sec": round(infer_time, 6),
-            "train_samples": int(len(X_train)),
             "test_samples": int(len(X_test)),
         }
         return results, y_test, preds
@@ -182,8 +189,8 @@ class Trainer:
 
     def train(self, tuning_params=None):
         """Train pipeline with injected or default params."""
-        if self.df is None:
-            self.load_data()
+        print("[INFO] Loading data for training...")
+        self.load_data()
 
         self.df = self.df.sample(frac=1).reset_index(drop=True)  # shuffle
 
@@ -191,25 +198,36 @@ class Trainer:
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=self.test_size, random_state=self.random_state
         )
-
+        print(f"[INFO] Training data shape: {X_train.shape}, Test data shape: {X_test.shape}")
         params = tuning_params or dict(
-            n_estimators=100, learning_rate=0.1, max_depth=4, subsample=0.8, colsample_bytree=0.8
+            n_estimators=100, learning_rate=0.1, max_depth=3, subsample=0.8, colsample_bytree=0.8
         )
+        # params["max_depth"] = int(params.get("max_depth", 3))  # ensure int
         model = self._model_factory(**params)
 
+        print(f"[INFO] Training with params: {params}")
         self.pipeline = Pipeline([
             ("preprocessor", preprocessor),
             ("model", model)
         ])
+        gc.collect()
+
+        for col in X_train.select_dtypes(include=["int", "float"]).columns:
+            X_train[col] = X_train[col].astype(np.float32)
+            X_test[col] = X_test[col].astype(np.float32)
 
         # train
+        print("[INFO] Starting training...")
         start_train = time.time()
         self.pipeline.fit(X_train, y_train)
         train_time = time.time() - start_train
+        gc.collect()
+        print(f"[INFO] Training completed in {train_time:.2f} sec.")
+        results, y_test, preds = self._evaluate(X_test, y_test, model=self.pipeline)
+        results["training_time_sec"] = round(train_time, 2)
+        results["train_samples"] =  int(len(X_train))
 
-        results, y_test, preds = self._evaluate(self.pipeline, X_test, y_test)
-
-        self._log(f"[RESULTS] RMSE={rmse:.3f}, MAE={mae:.3f}, R2={r2:.3f}")
+        self._log(f"[RESULTS] RMSE={results['metrics']['rmse']:.3f}, MAE={results['metrics']['mae']:.3f}, R2={results['metrics']['r2']:.3f}")
         self._write_file(self.metrics_out, results)
         return results
 
