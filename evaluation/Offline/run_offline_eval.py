@@ -5,7 +5,7 @@ import sys
 # Add project root so we can import offline_eval
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from tests.Offline import offline_eval  # Import the evaluate function
+from evaluation.Offline import offline_eval  # Import the evaluate function
 
 if __name__ == "__main__":
     # Project root
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     preproc_path = os.path.join(project_root, "src", "models", "preprocessor.joblib")
     model_path = os.path.join(project_root, "src", "models", "xgb_model.joblib")
     eval_data = os.path.join(project_root, "data", "training_data_v2.csv")
-    results_path = os.path.join(project_root, "tests", "Offline", "evaluation_results.json")
+    results_path = os.path.join(project_root, "evaluation", "Offline", "evaluation_results.json")
 
     # Call offline_eval's evaluate function
     results, y_test, preds = offline_eval.evaluate(

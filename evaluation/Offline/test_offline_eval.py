@@ -24,7 +24,7 @@ class TestOfflineEvaluation(unittest.TestCase):
         self.preproc_path = "src/models/preprocessor.joblib"
         self.model_path = "src/models/xgb_model.joblib"
         self.eval_data = "data/training_data_v2.csv"
-        self.results_path = "tests/Offline/evaluation_results.json"
+        self.results_path = "evaluation/Offline/evaluation_results.json"
 
     def test_evaluation(self):
         # Ensure model and data files exist

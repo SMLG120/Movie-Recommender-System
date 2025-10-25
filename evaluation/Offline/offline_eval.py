@@ -128,7 +128,7 @@ if __name__ == "__main__":
     preproc_path = os.path.join(project_root, "src", "models", "preprocessor.joblib")
     model_path = os.path.join(project_root, "src", "models", "xgb_model.joblib")
     eval_data = os.path.join(project_root, "data", "training_data_v2.csv")
-    results_path = os.path.join(project_root, "tests", "Offline", "evaluation_results.json")
+    results_path = os.path.join(project_root, "evaluation", "Offline", "evaluation_results.json")
 
     evaluate(
         preproc_path=preproc_path,
