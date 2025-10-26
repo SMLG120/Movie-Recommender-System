@@ -7,6 +7,9 @@ from sklearn.pipeline import Pipeline
 
 from feature_builder import FeatureBuilder
 
+import warnings
+warnings.filterwarnings("ignore")
+
 class RecommenderEngine:
     def __init__(self, model_dir="src/models", movies_file="data/raw_data/movies.csv"):
         """Initialize service by loading model and movies data"""
@@ -50,16 +53,23 @@ class RecommenderEngine:
 
         # Run through FeatureBuilder to get features
         fb = FeatureBuilder(mode="inference")
-        features = fb.build(df_override=candidate_df)
+        # features = fb.build(df_override=candidate_df)
 
-        preds = self.model.predict(features)
-        top_movies = candidate_df.assign(pred_score=preds).sort_values("pred_score", ascending=False).head(top_n)
+        try:
+            features = fb.build(df_override=candidate_df)
+            preds = self.model.predict(features)
 
-        # Rank + return top_n
-        top_movies = candidate_df.assign(pred_score=preds)
-        top_movies = top_movies.sort_values("pred_score", ascending=False).head(top_n)
+            preds = self.model.predict(features)
+            top_movies = candidate_df.assign(pred_score=preds).sort_values("pred_score", ascending=False).head(top_n)
 
-        return ", ".join(top_movies["movie_id"].tolist())
+            # Rank + return top_n
+            top_movies = candidate_df.assign(pred_score=preds)
+            top_movies = top_movies.sort_values("pred_score", ascending=False).head(top_n)
+
+            return ", ".join(top_movies["movie_id"].tolist())
+        except Exception as e:
+            print(f"[ERROR] recommend() failed: {e}")
+            return ""
 
 
 if __name__ == "__main__":
