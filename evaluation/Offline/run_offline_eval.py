@@ -25,5 +25,5 @@ if __name__ == "__main__":
         results_path=results_path
     )
 
-    print("\n✅ Offline evaluation finished from run_eval.py")
+    print("\nOffline evaluation finished from run_eval.py")
     print("Results preview:", results)
