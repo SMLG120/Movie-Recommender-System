@@ -1,0 +1,102 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.18, pytest-8.4.2, pluggy-1.6.0
+rootdir: /home/jojo/team-6
+configfile: pyproject.toml
+plugins: cov-7.0.0
+collected 61 items
+
+tests/e2e/test_full_pipeline.py .                                        [  1%]
+tests/integration/test_cf_trainer_integration.py ....                    [  8%]
+tests/integration/test_download_data_integration.py .....                [ 16%]
+tests/integration/test_feature_build_integration.py ...                  [ 21%]
+tests/integration/test_inference_integration.py .                        [ 22%]
+tests/integration/test_trainer_integration.py ....                       [ 29%]
+tests/test_offline_eval.py .                                             [ 31%]
+tests/test_online_eval.py ......                                         [ 40%]
+tests/unittests/test_cf_trainer.py .......                               [ 52%]
+tests/unittests/test_download_data.py ............                       [ 72%]
+tests/unittests/test_feature_build.py ......                             [ 81%]
+tests/unittests/test_inference.py .......                                [ 93%]
+tests/unittests/test_trainer.py ....                                     [100%]
+
+=============================== warnings summary ===============================
+tests/e2e/test_full_pipeline.py::test_full_pipeline_cf_to_inference
+tests/integration/test_cf_trainer_integration.py::test_train_implicit_saves_expected_outputs
+tests/unittests/test_cf_trainer.py::test_train_implicit_with_mock_model
+  /home/jojo/team-6/src/cf_trainer.py:146: SettingWithCopyWarning: 
+  A value is trying to be set on a copy of a slice from a DataFrame.
+  Try using .loc[row_indexer,col_indexer] = value instead
+  
+  See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+    conf["row"] = conf["user_id"].map(u2i)
+
+tests/e2e/test_full_pipeline.py::test_full_pipeline_cf_to_inference
+tests/integration/test_cf_trainer_integration.py::test_train_implicit_saves_expected_outputs
+tests/unittests/test_cf_trainer.py::test_train_implicit_with_mock_model
+  /home/jojo/team-6/src/cf_trainer.py:147: SettingWithCopyWarning: 
+  A value is trying to be set on a copy of a slice from a DataFrame.
+  Try using .loc[row_indexer,col_indexer] = value instead
+  
+  See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+    conf["col"] = conf["movie_id"].map(i2i)
+
+tests/e2e/test_full_pipeline.py::test_full_pipeline_cf_to_inference
+tests/integration/test_cf_trainer_integration.py::test_train_implicit_saves_expected_outputs
+tests/unittests/test_cf_trainer.py::test_train_implicit_with_mock_model
+  /home/jojo/team-6/src/cf_trainer.py:148: SettingWithCopyWarning: 
+  A value is trying to be set on a copy of a slice from a DataFrame
+  
+  See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+    conf.dropna(subset=["row", "col"], inplace=True)
+
+tests/e2e/test_full_pipeline.py::test_full_pipeline_cf_to_inference
+tests/integration/test_cf_trainer_integration.py::test_train_implicit_saves_expected_outputs
+tests/unittests/test_cf_trainer.py::test_train_implicit_with_mock_model
+  /home/jojo/team-6/src/cf_trainer.py:149: SettingWithCopyWarning: 
+  A value is trying to be set on a copy of a slice from a DataFrame.
+  Try using .loc[row_indexer,col_indexer] = value instead
+  
+  See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+    conf["confidence"] = conf["confidence"].fillna(0)
+
+tests/e2e/test_full_pipeline.py::test_full_pipeline_cf_to_inference
+  /home/jojo/miniconda3/envs/recsys/lib/python3.10/site-packages/implicit/cpu/als.py:95: RuntimeWarning: OpenBLAS is configured to use 4 threads. It is highly recommended to disable its internal threadpool by setting the environment variable 'OPENBLAS_NUM_THREADS=1' or by calling 'threadpoolctl.threadpool_limits(1, "blas")'. Having OpenBLAS use a threadpool can lead to severe performance issues here.
+    check_blas_config()
+
+tests/e2e/test_full_pipeline.py::test_full_pipeline_cf_to_inference
+tests/integration/test_trainer_integration.py::test_train_and_metrics
+tests/integration/test_trainer_integration.py::test_save_pipeline
+tests/unittests/test_trainer.py::test_train_with_dummy_model
+tests/unittests/test_trainer.py::test_save_saves_model_files
+  /home/jojo/miniconda3/envs/recsys/lib/python3.10/site-packages/sklearn/metrics/_regression.py:996: UndefinedMetricWarning: R^2 score is not well-defined with less than two samples.
+    warnings.warn(msg, UndefinedMetricWarning)
+
+tests/test_online_eval.py::test_log_interactions_and_hit_rate
+tests/test_online_eval.py::test_log_error_and_error_rate
+tests/test_online_eval.py::test_model_deployment_and_quality
+tests/test_online_eval.py::test_compute_online_metrics
+tests/test_online_eval.py::test_get_evaluator_singleton
+  /home/jojo/team-6/evaluation/Online/online_eval.py:43: UserWarning: Could not start Prometheus server: [Errno 98] Address already in use
+    warnings.warn(f"Could not start Prometheus server: {e}")
+
+tests/unittests/test_feature_build.py::test_handle_dates_and_clip_outliers
+  /home/jojo/miniconda3/envs/recsys/lib/python3.10/site-packages/numpy/lib/nanfunctions.py:1215: RuntimeWarning: Mean of empty slice
+    return np.nanmean(a, axis, out=out, keepdims=keepdims)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.10.18-final-0 _______________
+
+Name                     Stmts   Miss  Cover   Missing
+------------------------------------------------------
+src/__init__.py              0      0   100%
+src/app.py                  45     45     0%   7-80
+src/cf_trainer.py          153     21    86%   57, 59, 227-255
+src/configs.py               2      0   100%
+src/download_data.py       254     27    89%   43, 56-58, 78, 84, 137, 157-159, 244-245, 254-255, 277-278, 281-282, 374-375, 377-378, 380-381, 406-408
+src/feature_builder.py     150     12    92%   69, 74, 77, 113, 138, 148, 210-224
+src/inference.py            57      8    86%   76-83
+src/trainer.py             146     22    85%   59-62, 94-100, 158, 239-240, 248-258
+------------------------------------------------------
+TOTAL                      807    135    83%
+======================= 61 passed, 24 warnings in 13.59s =======================
