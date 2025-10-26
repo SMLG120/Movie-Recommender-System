@@ -83,7 +83,7 @@ def worker(n_users, topn_choices, click_p, rate_p):
             msg.append(f"rate_err={e}")
 
     # a few bad requests for error-rate panels
-    if random.random() < 0.05:
+    if random.random() < 0.2:
         msg.append(f"bad={do_bad_request()}")
 
     return " ".join(msg)
