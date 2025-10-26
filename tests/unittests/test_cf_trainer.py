@@ -2,7 +2,10 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import MagicMock
-from src.cf_trainer import CFTrainer
+from cf_trainer import CFTrainer
+
+import warnings
+warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
 
 
 # Fixtures
@@ -134,3 +137,48 @@ def test_run_calls_both_methods(monkeypatch, dummy_config):
     trainer.train_implicit = lambda: called.__setitem__("implicit", True)
     trainer.run()
     assert all(called.values())
+
+def test_compute_mean_embeddings_creates_file(tmp_path, dummy_config):
+    """Check that mean embeddings are computed and saved correctly."""
+    # Create fake embedding CSVs
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    pd.DataFrame({"user_id": ["u1", "u2"], "exp_f1": [0.1, 0.2]}).to_csv(out_dir / "user_factors_explicit.csv", index=False)
+    pd.DataFrame({"movie_id": ["m1", "m2"], "exp_f1": [0.3, 0.4]}).to_csv(out_dir / "movie_factors_explicit.csv", index=False)
+    pd.DataFrame({"user_id": ["u1", "u2"], "imp_f1": [0.5, 0.6]}).to_csv(out_dir / "user_factors_implicit.csv", index=False)
+    pd.DataFrame({"movie_id": ["m1", "m2"], "imp_f1": [0.7, 0.8]}).to_csv(out_dir / "movie_factors_implicit.csv", index=False)
+
+    trainer = CFTrainer({**dummy_config, "out_dir": str(out_dir)})
+    output_path = tmp_path / "mean_embeddings.joblib"
+
+    mean_embeds = trainer._compute_mean_embeddings(output_path)
+    
+    # Validate output
+    assert output_path.exists()
+    assert isinstance(mean_embeds, dict)
+    assert all(k in mean_embeds for k in ["exp_user", "imp_user", "exp_movie", "imp_movie"])
+    assert all(isinstance(v, dict) for v in mean_embeds.values())
+
+def test_compute_mean_embeddings_handles_missing_files(tmp_path, dummy_config, caplog):
+    trainer = CFTrainer({**dummy_config, "out_dir": str(tmp_path)})
+    result = trainer._compute_mean_embeddings(output_path=tmp_path / "fake.joblib")
+    assert result is None
+    assert "Failed to compute mean embeddings" in caplog.text or "[WARN]" in caplog.text
+
+
+def test_build_confidence_handles_invalid_values(dummy_config):
+    trainer = CFTrainer(dummy_config)
+    df = pd.DataFrame({
+        "user_id": ["u1"],
+        "movie_id": ["m1"],
+        "interaction_count": ["bad"],
+        "max_minute_reached": [np.nan],
+        "movie_duration": [0],
+    })
+    conf = trainer._build_confidence(df)
+    assert "confidence" in conf.columns
+    assert pd.api.types.is_numeric_dtype(conf["confidence"])
+    # Accept NaNs but ensure a finite numeric column exists
+    assert len(conf) == 1
+

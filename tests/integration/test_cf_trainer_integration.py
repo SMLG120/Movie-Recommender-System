@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 import pytest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from cf_trainer import CFTrainer 
@@ -90,3 +91,9 @@ def test_run_combined_invokes_both(monkeypatch, tmp_cfg):
 
     trainer.run(run_explicit=True, run_implicit=True)
     assert called["exp"] and called["imp"]
+
+def test_run_produces_mean_embeddings(tmp_path, tmp_cfg):
+    trainer = CFTrainer(tmp_cfg)
+    trainer.run()
+    mean_path = Path("src/models/mean_embeddings.joblib")
+    assert mean_path.exists()
