@@ -1,5 +1,6 @@
 import os
 import json
+import joblib
 import numpy as np
 import pandas as pd
 import logging
@@ -10,7 +11,6 @@ import implicit
 
 import argparse
 import warnings
-
 warnings.filterwarnings("ignore")
 
 
@@ -176,7 +176,7 @@ class CFTrainer:
 
     def run(self, run_explicit=True, run_implicit=True):
         """Run full CF training with optional components."""
-        self.logger.info("==== Starting Collaborative Filtering Training ====")
+        self.logger.info("Starting Collaborative Filtering Training")
         if run_explicit:
             try:
                 self.train_explicit()
@@ -187,26 +187,58 @@ class CFTrainer:
                 self.train_implicit()
             except Exception as e:
                 self.logger.warning(f"[WARN] Implicit CF failed: {e}")
+
+        # Postprocess mean embeddings
+        self._compute_mean_embeddings()
         self.logger.info("==== All CF models complete ====")
 
+    def _compute_mean_embeddings(self, output_path="src/models/mean_embeddings.joblib"):
+        """Compute and save mean embeddings from explicit & implicit factors."""
+        try:
+            user_explicit = pd.read_csv(f"{self.out_dir}/user_factors_explicit.csv")
+            movie_explicit = pd.read_csv(f"{self.out_dir}/movie_factors_explicit.csv")
+            user_implicit = pd.read_csv(f"{self.out_dir}/user_factors_implicit.csv")
+            movie_implicit = pd.read_csv(f"{self.out_dir}/movie_factors_implicit.csv")
 
-# ---------- CLI ----------
+            mean_exp_user = user_explicit.drop(columns="user_id").mean()
+            mean_imp_user = user_implicit.drop(columns="user_id").mean()
+            mean_exp_movie = movie_explicit.drop(columns="movie_id").mean()
+            mean_imp_movie = movie_implicit.drop(columns="movie_id").mean()
+
+            mean_embeds = {
+                "exp_user": mean_exp_user.to_dict(),
+                "imp_user": mean_imp_user.to_dict(),
+                "exp_movie": mean_exp_movie.to_dict(),
+                "imp_movie": mean_imp_movie.to_dict(),
+            }
+
+            Path(os.path.dirname(output_path)).mkdir(parents=True, exist_ok=True)
+            joblib.dump(mean_embeds, output_path)
+            self.logger.info(f"[POST] Saved mean embeddings → {output_path}")
+            return mean_embeds
+
+        except Exception as e:
+            self.logger.warning(f"[WARN] Failed to compute mean embeddings: {e}")
+            return None
+
+
+# CLI
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Collaborative Filtering models (SVD + ALS).")
 
-    # ---- Paths ----
+    # Paths
     parser.add_argument("--ratings_csv", type=str, default="data/raw_data/ratings.csv", help="Path to ratings CSV file.")
     parser.add_argument("--watch_csv", type=str, default="data/raw_data/watch_time.csv", help="Path to watch time CSV file.")
     parser.add_argument("--movies_csv", type=str, default="data/raw_data/movies.csv", help="Path to movies CSV file.")
     parser.add_argument("--out_dir", type=str, default="data/embeddings", help="Output directory for embeddings.")
 
-    # ---- Explicit CF (SVD) ----
+    # Explicit CF (SVD)
     parser.add_argument("--svd_factors", type=int, default=50, help="Number of latent factors for SVD.")
     parser.add_argument("--svd_epochs", type=int, default=30, help="Number of training epochs for SVD.")
     parser.add_argument("--svd_lr", type=float, default=0.005, help="Learning rate for SVD.")
     parser.add_argument("--svd_reg", type=float, default=0.02, help="Regularization term for SVD.")
 
-    # ---- Implicit CF (ALS) ----
+    # Implicit CF (ALS)
     parser.add_argument("--als_factors", type=int, default=50, help="Number of latent factors for ALS.")
     parser.add_argument("--als_iters", type=int, default=20, help="Number of ALS iterations.")
     parser.add_argument("--als_reg", type=float, default=0.01, help="Regularization term for ALS.")
@@ -214,7 +246,7 @@ if __name__ == "__main__":
     parser.add_argument("--w1", type=float, default=0.7, help="Weight for completion ratio in confidence score.")
     parser.add_argument("--w2", type=float, default=0.3, help="Weight for interaction frequency in confidence score.")
 
-    # ---- General ----
+    # General
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
 
     args = parser.parse_args()
