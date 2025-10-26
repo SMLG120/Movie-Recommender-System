@@ -1,0 +1,103 @@
+{
+  "title": "Recommender - Availability & Model Quality",
+  "tags": ["recommender", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Service Up",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "up{job=\"recommender\"}", "legendFormat": "up" }],
+      "fieldConfig": { "defaults": { "unit": "bool" } }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Request Count by Status",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 9, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "sum by (status)(increase(flask_http_request_total[10m]))", "legendFormat": "{{status}}/s" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "req/s" } }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Error Count",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 9, "x": 15, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(increase(flask_http_request_total{status!~\"2..\"}[$__rate_interval]))",
+          "legendFormat": "error %"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 4,
+      "title": "Latency P50 / P90 / P99 /recommend",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5,  sum by (le) (rate(flask_http_request_duration_seconds_bucket{endpoint=\"recommend\"}[10m])))",  "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.9,  sum by (le) (rate(flask_http_request_duration_seconds_bucket{endpoint=\"recommend\"}[10m])))",  "legendFormat": "p90" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(flask_http_request_duration_seconds_bucket{endpoint=\"recommend\"}[10m])))", "legendFormat": "p99" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 5,
+      "title": "Latency P90 - All Endpoints",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        { "expr": "histogram_quantile(0.9, sum by (le, path) (rate(flask_http_request_duration_seconds_bucket[10m])))", "legendFormat": "{{endpoint}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 6,
+      "title": "Kafka Consumer Lag (by group/topic)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        { "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}} {{topic}}" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Kafka Produce vs Consume (msgs/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        { "expr": "sum by (topic) (rate(kafka_topic_partition_current_offset[1m]))", "legendFormat": "produce {{topic}}" },
+        { "expr": "sum by (consumergroup) (rate(kafka_consumergroup_current_offset[1m]))", "legendFormat": "consume {{consumergroup}}" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "CTR@K (%)",
+      "type": "timeseries",
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        { "expr": "100 * ( sum(rate(model_ctr_at_k_total[10m])) OR on() vector(0) ) / clamp_min( sum(rate(model_reco_served_total[10m])), 1e-9 )", "legendFormat": "CTR@K" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 9,
+      "title": "HitRate@K (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        { "expr": "100 * (sum(rate(model_hits_at_k_total[10m])) OR on() vector(0) ) / clamp_min( sum(rate(model_reco_served_total[10m])), 1e-9 )", "legendFormat": "HitRate@K" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    }
+  ]
+}

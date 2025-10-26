@@ -1,80 +1,166 @@
 #!/usr/bin/env python3
 """
-Movie Recommender API - Production Server Deployment
-Flask API for serving movie recommendations on McGill CS servers
+Movie Recommender API – Production Server with Monitoring
+- Availability metrics via prometheus_flask_exporter
+- Model-quality metrics (CTR@K, HitRate@K, Online MAE/RMSE aggregates)
+- Health endpoints
 """
 
-from flask import Flask, Response
-import sys
 import os
 import logging
+from typing import List, Dict, Any, Optional
 
-# Set up import paths for Docker container
-sys.path.append('/app/src')
-sys.path.append('/app')
+from flask import Flask, request, jsonify, Response
+from prometheus_client import Counter
+from prometheus_flask_exporter import PrometheusMetrics
 
-from inference import RecommenderEngine
+# Local imports (paths set for Docker and local runs)
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.inference import RecommenderEngine  
 
+from prometheus_client import Histogram
+# Extend default buckets up to 5 minutes
+Histogram.DEFAULT_BUCKETS = (
+    0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60, 90, 120, 180, 300
+)
+
+# Config
+PORT = int(os.getenv("PORT", "8080"))
+MODEL_PATH = os.getenv("MODEL_PATH", "src/models")
+MOVIES_FILE = os.getenv("MOVIES_FILE", "data/raw_data/movies.csv")
+
+# App + Logging
 app = Flask(__name__)
-recommender_engine = None
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("reco-api")
 
-def initialize_recommender():
-    """Initialize the RecommenderEngine for server deployment"""
-    global recommender_engine
-    
-    # Server deployment paths
-    model_path = "/app/src/models/xgb_recommender.joblib"
-    movies_path = "/app/data/raw_data/movies.csv"
-    
-    try:
-        recommender_engine = RecommenderEngine(
-            model_path=model_path,
-            movies_file=movies_path,
-            mode='dev'
-        )
-        logger.info("RecommenderEngine initialized successfully")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize RecommenderEngine: {e}")
-        return False
+metrics = PrometheusMetrics(app, path="/metrics", group_by="endpoint")
 
-# Initialize recommender on startup
-initialize_recommender()
 
-@app.route('/recommend/<int:user_id>', methods=['GET'])
-def recommend(user_id):
-    """Main recommendation endpoint - returns comma-separated movie IDs"""
-    try:
-        if recommender_engine is None:
-            # Fallback recommendations
-            fallback = ",".join([str(i) for i in range(1, 21)])
-            return Response(fallback, mimetype='text/plain')
-        
-        recommendations = recommender_engine.recommend(user_id, top_n=20)
-        return Response(recommendations, mimetype='text/plain')
-    
-    except Exception as e:
-        logger.error(f"Error for user {user_id}: {e}")
-        fallback = ",".join([str(i) for i in range(1, 21)])
-        return Response(fallback, mimetype='text/plain')
+# Model-quality metrics 
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
+RECO_SERVED  = Counter("model_reco_served_total", "Recommendations served to users", registry=metrics.registry)
+CTR_HITS     = Counter("model_ctr_at_k_total", "Clicks/engagements that match served K-list", registry=metrics.registry)
+HITRATE_HITS = Counter("model_hits_at_k_total", "Hits@K that match served K-list", registry=metrics.registry)
+MAE_SUM      = Counter("model_mae_sum", "Sum of absolute errors |y - y_hat|", registry=metrics.registry)
+RMSE_SSE     = Counter("model_rmse_sse", "Sum of squared errors (y - y_hat)^2", registry=metrics.registry)
+ERR_COUNT    = Counter("model_err_count", "Count of labeled events contributing to errors", registry=metrics.registry)
+
+for c in (RECO_SERVED, CTR_HITS, HITRATE_HITS, MAE_SUM, RMSE_SSE, ERR_COUNT):
+    c.inc(0)
+
+# Load model
+try:
+    recommender_engine = RecommenderEngine(
+        model_dir= MODEL_PATH,
+        movies_file=MOVIES_FILE,
+    )
+    logger.info("RecommenderEngine loaded successfully.")
+except Exception as e:
+    logger.exception("Failed to load RecommenderEngine: %s", e)
+    recommender_engine = None
+
+
+LAST_SERVED: Dict[int, List[str]] = {}
+
+
+# Routes
+@app.route("/", methods=["GET"])
+def root():
+    return Response("Movie Recommender API", mimetype="text/plain")
+
+@app.route("/_live", methods=["GET"])
+def live():
+    """Liveness probe."""
+    return Response("OK", mimetype="text/plain"), 200
+
+@app.route("/_ready", methods=["GET"])
+def ready():
+    """Readiness probe: model must be loaded."""
+    ok = recommender_engine is not None
+    return (Response("READY", mimetype="text/plain"), 200) if ok \
+        else (Response("NOT_READY", mimetype="text/plain"), 503)
+
+@app.route("/health", methods=["GET"])
+def health():
     status = "OK" if recommender_engine is not None else "Service Degraded"
     code = 200 if recommender_engine is not None else 503
-    return Response(status, mimetype='text/plain'), code
+    return jsonify({"status": status}), code
 
-@app.route('/', methods=['GET'])
-def root():
-    """Root endpoint"""
-    return Response("Movie Recommender API", mimetype='text/plain')
+@app.route("/recommend", methods=["GET"])
+def recommend():
+    """
+    Serve recommendations.
+    """
+    if recommender_engine is None:
+        return jsonify({"error": "model not loaded"}), 503
+    try:
+        user_id = int(request.args.get("user_id", ""))
+    except Exception:
+        return jsonify({"error": "user_id (int) is required"}), 400
 
-if __name__ == '__main__':
-    logger.info("Starting Movie Recommender API on port 8080")
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    top_n = int(request.args.get("top_n", 10))
+    try:
+        recs_csv = recommender_engine.recommend(user_id, top_n=top_n)
+        recs = [x.strip() for x in recs_csv.split(",") if x.strip()]
+        # track served list for CTR/HitRate
+        LAST_SERVED[user_id] = recs
+        RECO_SERVED.inc()
+        return jsonify({"user_id": user_id, "recommendations": recs}), 200
+    except Exception as e:
+        logger.exception("recommend failed: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/event/click", methods=["POST"])
+def event_click():
+    """
+    Record a click/engagement event.
+    """
+    data: Dict[str, Any] = request.get_json(silent=True) or {}
+    try:
+        user_id = int(data.get("user_id", ""))
+        item_id = str(data.get("item_id", ""))
+    except Exception:
+        return jsonify({"error": "user_id(int) and item_id(str) required"}), 400
+
+    served = LAST_SERVED.get(user_id, [])
+    if item_id in served:
+        CTR_HITS.inc()
+        HITRATE_HITS.inc()
+        return jsonify({"recorded": True, "matched_served": True}), 200
+    return jsonify({"recorded": True, "matched_served": False}), 200
+
+@app.route("/event/rating", methods=["POST"])
+def event_rating():
+    """
+    Record a rating with the predicted score to compute online errors.
+    """
+    data: Dict[str, Any] = request.get_json(silent=True) or {}
+    try:
+        rating = float(data["rating"])
+    except Exception:
+        return jsonify({"error": "rating (float) is required"}), 400
+
+    pred_raw: Optional[float] = data.get("predicted")
+    if pred_raw is None:
+        return jsonify({"error": "predicted (float) is required for online error"}), 400
+
+    try:
+        yhat = float(pred_raw)
+    except Exception:
+        return jsonify({"error": "predicted must be float"}), 400
+
+    err = rating - yhat
+    MAE_SUM.inc(abs(err))
+    RMSE_SSE.inc(err * err)
+    ERR_COUNT.inc()
+
+    return jsonify({"recorded": True}), 200
+
+
+if __name__ == "__main__":
+    logger.info(f"Starting Movie Recommender API on port {PORT}")
+    app.run(host="0.0.0.0", port=PORT, debug=False)

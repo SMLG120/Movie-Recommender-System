@@ -1,25 +1,16 @@
 global:
-  scrape_interval: 15s
+  scrape_interval: 5s
+  evaluation_interval: 4s
 
 scrape_configs:
-  - job_name: 'recommender_system'
+  # Scrape your Flask API (running on the host at port 8080)
+  - job_name: "recommender"
     static_configs:
-      - targets: ['localhost:8000']
-    metrics_path: '/metrics'
-
-  - job_name: 'kafka_monitoring'
+      - targets: ["movie-reco-api:8080"]
+        labels:
+          service: "recommender-api"
+          
+  - job_name: "kafka-exporter"
     static_configs:
-      - targets: ['localhost:9308']
+      - targets: ["kafka-exporter:9308"]
 
-rules:
-  - alert: HighErrorRate
-    expr: rate(recommendation_errors_total[5m]) > 0.1
-    for: 5m
-    labels:
-      severity: warning
-  
-  - alert: LowModelQuality
-    expr: avg_recommendation_satisfaction < 0.7
-    for: 15m
-    labels:
-      severity: warning

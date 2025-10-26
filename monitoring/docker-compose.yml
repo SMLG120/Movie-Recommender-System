@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  movie-reco-api:
+    build:
+      context: ..            
+      dockerfile: docker/Dockerfile 
+    image: movie-recommender:latest     
+    container_name: movie-reco-api
+    command: ["gunicorn",
+      "--worker-class","gthread",
+      "--threads","8",          
+      "-w","1",                 
+      "-b","0.0.0.0:8080",
+      "--timeout","300",
+      "--graceful-timeout","60",
+      "--keep-alive","5",
+      "src.app:app"]
+    ports: ["8080:8080"] 
+    environment:
+      - PORT=8080
+    volumes:
+      - /tmp/prometheus:/tmp/prometheus            
+    networks: [monitoring]                    
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks: [monitoring]
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana-dashboard.json:/etc/grafana/provisioning/dashboards/reco-dashboard.json:ro
+    ports:
+      - "3000:3000"
+    networks: [monitoring]
+    depends_on: [prometheus]
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: kafka-exporter
+    command:
+      - --kafka.server=fall2025-comp585.cs.mcgill.ca:9092
+      - --topic.filter=^movielog.*$
+      - --group.filter=.*
+    ports:
+      - "9308:9308"
+    networks: [monitoring]
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
