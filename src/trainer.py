@@ -66,10 +66,9 @@ class Trainer:
         self._log(f"[INFO] Loaded dataset with shape {self.df.shape}")
         return self.df
 
-    def prepare_features(self):
+    def prepare_features(self, data=None):
         categorical = ["age_bin", "occupation", "gender", "original_language"]
-        for col in df.select_dtypes(include=['float64', 'int64']):
-            df[col] = pd.to_numeric(df[col], downcast='float')
+        self.df = data if data is not None else self.df
 
         all_cols = self.df.columns.tolist()
         ignore = set(["user_id", "movie_id", self.target] + categorical)
@@ -192,7 +191,7 @@ class Trainer:
         print("[INFO] Loading data for training...")
         self.load_data()
 
-        self.df = self.df.sample(frac=1).reset_index(drop=True)  # shuffle
+        self.df = self.df.sample(frac=1, random_state=42).reset_index(drop=True)  # shuffle
 
         X, y, preprocessor, _, _ = self.prepare_features()
         X_train, X_test, y_train, y_test = train_test_split(

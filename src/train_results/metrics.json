@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-10-25T16:57:21.405378",
+  "timestamp": "2025-10-24T02:30:18.937767",
   "metrics": {
     "rmse": 0.6746619110767528,
     "mae": 0.5522267818450928,
     "r2": 0.16537851095199585
   },
-  "avg_infer_time_sec": 2.8e-05,
-  "test_samples": 18570,
-  "training_time_sec": 17.8,
-  "train_samples": 74280
+  "train_time_sec": 2.762,
+  "avg_infer_time_sec": 0.000501,
+  "train_samples": 22349,
+  "test_samples": 5588
 }
