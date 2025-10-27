@@ -5,8 +5,9 @@
 
 workflow:
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Only after merge to main
-      when: always
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"  # Test on MR
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # After merge
+
 
 
 # GLOBAL VARIABLES
