@@ -16,10 +16,11 @@ from sklearn.metrics import (
     f1_score,
     accuracy_score,
 )
-from src.trainer import Trainer
 
 # Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from src.trainer import Trainer
 
 
 def regression_metrics(y_true, y_pred):
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     preproc_path = os.path.join(project_root, "src", "models", "preprocessor.joblib")
     model_path = os.path.join(project_root, "src", "models", "xgb_model.joblib")
     eval_data = os.path.join(project_root, "data", "training_data_v2.csv")
-    results_path = os.path.join(project_root, "tests", "Offline", "evaluation_results.json")
+    results_path = os.path.join(project_root, "evaluation", "Offline", "evaluation_results.json")
 
     evaluate(
         preproc_path=preproc_path,

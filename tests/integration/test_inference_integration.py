@@ -4,8 +4,13 @@ import json
 import numpy as np
 import tempfile
 import os
+import sys
 from unittest.mock import MagicMock, patch
-from inference import RecommenderEngine
+# Add project root to path for src imports
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+from src.inference import RecommenderEngine
 
 
 # def _create_fake_models(tmp_path):

@@ -1,12 +1,16 @@
 import os
+import sys
 import json
 import pandas as pd
 import numpy as np
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
-
-from cf_trainer import CFTrainer 
+# Add project root to path for src imports
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+from src.cf_trainer import CFTrainer 
 
 
 @pytest.fixture
