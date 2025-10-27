@@ -104,6 +104,7 @@ This will host:
 3. Grafana at port 3000
 
 Grafana login → admin / admin
+
 Import dashboard → monitoring/grafana-dashboard.json
 
 ### Models & artifacts
