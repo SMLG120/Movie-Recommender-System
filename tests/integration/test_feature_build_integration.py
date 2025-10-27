@@ -1,11 +1,16 @@
+import os
+import sys
 import pandas as pd
 import pytest
 import joblib
 import numpy as np
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-
-from feature_builder import FeatureBuilder
+# Add project root to path for src imports
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+from src.feature_builder import FeatureBuilder
 
 
 @pytest.fixture

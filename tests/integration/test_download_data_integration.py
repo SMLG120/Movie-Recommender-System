@@ -1,9 +1,14 @@
 import os
+import sys
 import tempfile
 import json
 import pytest
 from unittest.mock import MagicMock
-from download_data import KafkaLogCollector, LogParser, MetadataFetcher, DataPipeline
+# Add project root to path for src imports
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+from src.download_data import KafkaLogCollector, LogParser, MetadataFetcher, DataPipeline
 
 
 @pytest.fixture

@@ -1,8 +1,13 @@
 import os
+import sys
 import json
 import joblib
 import pandas as pd
-from trainer import Trainer
+# Add project root to path for src imports
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+from src.trainer import Trainer
 
 
 def _make_small_df():
