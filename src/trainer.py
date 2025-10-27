@@ -201,7 +201,8 @@ class Trainer:
             X, y, test_size=self.test_size, random_state=self.random_state
         )
         print(f"[INFO] Training data shape: {X_train.shape}, Test data shape: {X_test.shape}")
-        params = tuning_params or dict(
+        self.best_params = tuning_params if tuning_params else self.best_params
+        params = self.best_params or dict(
             n_estimators=100, learning_rate=0.1, max_depth=3, subsample=0.8, colsample_bytree=0.8
         )
         # params["max_depth"] = int(params.get("max_depth", 3))  # ensure int
@@ -253,6 +254,11 @@ if __name__ == "__main__":
     df = pd.read_csv(train_data)
     tuning_df = df.sample(frac=0.4, random_state=42).reset_index(drop=True)
 
-    trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
-    trainer.train()
+    # Tune hyperparameters
+    best_params = trainer.tune(tuning_file="src/train_results/tuning_results.json", tune_df=tuning_df)
+    
+    # Extract model params (remove 'model__' prefix)
+    model_params = {k.replace('model__', ''): v for k, v in best_params.items()}
+    
+    trainer.train(tuning_params=model_params)
     trainer.save(output_dir="src/models")

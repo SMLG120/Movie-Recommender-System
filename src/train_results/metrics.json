@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-10-24T02:30:18.937767",
+  "timestamp": "2025-10-27T15:34:52.143378",
   "metrics": {
-    "rmse": 0.6746619110767528,
-    "mae": 0.5522267818450928,
-    "r2": 0.16537851095199585
+    "rmse": 0.5715047054364056,
+    "mae": 0.4639227092266083,
+    "r2": 0.4107930660247803
   },
-  "train_time_sec": 2.762,
-  "avg_infer_time_sec": 0.000501,
-  "train_samples": 22349,
-  "test_samples": 5588
+  "avg_infer_time_sec": 1e-05,
+  "test_samples": 18570,
+  "training_time_sec": 21.47,
+  "train_samples": 74280
 }
