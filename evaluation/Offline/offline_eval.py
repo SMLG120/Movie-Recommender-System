@@ -65,28 +65,28 @@ def evaluate(
             # Only error if transformer is a string but NOT "passthrough" or "drop"
             if isinstance(transformer, str) and transformer not in ("passthrough", "drop"):
                 raise TypeError(
-                    f"❌ Invalid preprocessor: transformer '{name}' is a string ('{transformer}'). "
+                    f"Invalid preprocessor: transformer '{name}' is a string ('{transformer}'). "
                     f"Please rebuild the preprocessor using actual sklearn transformers like OneHotEncoder or StandardScaler."
                 )
     else:
-        print("⚠️ Warning: preprocessor has no 'transformers' attribute. Check your joblib file.")
+        print("Warning: preprocessor has no 'transformers' attribute. Check your joblib file.")
 
 
-    print(f"🔹 Loading model from: {model_path}")
+    print(f"Loading model from: {model_path}")
     model = joblib.load(model_path)
 
     # Combine preprocessor and model in a pipeline
     pipeline = Pipeline([("preprocessor", preprocessor), ("model", model)])
 
     # Load evaluation dataset
-    print(f"🔹 Loading evaluation data from: {eval_data}")
+    print(f"Loading evaluation data from: {eval_data}")
     trainer = Trainer()
     trainer.df = pd.read_csv(eval_data)
     X, y, _, _, _ = trainer.prepare_features()
 
     # Split into test set (offline evaluation)
     _, X_test, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    print(f"✅ Evaluation dataset: {X_test.shape[0]} samples")
+    print(f"Evaluation dataset: {X_test.shape[0]} samples")
 
     # Run inference
     start_time = time.time()
@@ -108,7 +108,7 @@ def evaluate(
     with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
 
-    print(f"\n✅ Offline evaluation completed. Results saved to: {results_path}")
+    print(f"\nOffline evaluation completed. Results saved to: {results_path}")
     print(json.dumps(results, indent=4))
 
     return results, y_test, preds

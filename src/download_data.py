@@ -12,6 +12,9 @@ from collections import defaultdict
 from confluent_kafka import Consumer
 from typing import Iterable, Callable, List, Tuple, Dict, Any
 
+import warnings
+warnings.filterwarnings("ignore")
+
 
 # 1. KafkaLogCollector — responsible for fetching logs
 class KafkaLogCollector:

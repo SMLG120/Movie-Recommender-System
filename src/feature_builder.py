@@ -161,7 +161,7 @@ class FeatureBuilder:
         df.drop(columns=["normalized_langs"], inplace=True)
         return df
 
-    def _merge_embeddings(self, df):
+    def _merge_embeddings(self, df, mean_path="src/models/mean_embeddings.joblib"):
         def _safe_merge(base, other, on, prefix):
             if other is None:
                 return base
@@ -177,7 +177,7 @@ class FeatureBuilder:
 
         else:
             # --- INFERENCE MODE ---
-            mean_embeds = joblib.load("src/models/mean_embeddings.joblib")
+            mean_embeds = joblib.load(mean_path)
 
             # Apply global mean user embeddings
             for col, val in mean_embeds["exp_user"].items():

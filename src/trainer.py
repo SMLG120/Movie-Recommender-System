@@ -11,6 +11,9 @@ from scipy.stats import randint as sp_randint
 from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
+import warnings
+warnings.filterwarnings("ignore")
+
 
 class Trainer:
     def __init__(
@@ -221,6 +224,7 @@ class Trainer:
         self.pipeline.fit(X_train, y_train)
         train_time = time.time() - start_train
         gc.collect()
+        
         print(f"[INFO] Training completed in {train_time:.2f} sec.")
         results, y_test, preds = self._evaluate(X_test, y_test, model=self.pipeline)
         results["training_time_sec"] = round(train_time, 2)

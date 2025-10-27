@@ -5,7 +5,7 @@ import numpy as np
 from inference import RecommenderEngine
 
 
-# ---------------- FIXTURES ----------------
+# FIXTURES
 @pytest.fixture
 def my_user():
     return {"user_id": 1, "age": 40, "occupation": "clerical/admin", "gender": "F"}
@@ -31,7 +31,7 @@ def mock_pipeline():
     return pipe
 
 
-# ---------------- TESTS ----------------
+# TESTS
 @patch("inference.joblib.load")
 @patch("inference.pd.read_csv")
 def test_init_loads_model_and_movies(mock_read_csv, mock_joblib_load, my_movies_dataframe, mock_pipeline):
@@ -50,13 +50,11 @@ def test_init_loads_model_and_movies(mock_read_csv, mock_joblib_load, my_movies_
 @patch("inference.requests.get")
 @patch("inference.joblib.load")
 @patch("inference.pd.read_csv")
-def test_get_user_info_success(mock_read_csv, mock_joblib_load, mock_requests_get, my_user, mock_pipeline, my_movies_dataframe):
+def test_get_user_info_success(mock_read_csv, mock_joblib_load, mock_requests_get, my_user, my_movies_dataframe):
     mock_joblib_load.side_effect = [MagicMock(), MagicMock()]
     mock_read_csv.return_value = my_movies_dataframe
 
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = my_user
+    mock_response = MagicMock(status_code=200, json=lambda: my_user)
     mock_requests_get.return_value = mock_response
 
     engine = RecommenderEngine(model_dir="placeholder", movies_file="placeholder")
@@ -69,12 +67,11 @@ def test_get_user_info_success(mock_read_csv, mock_joblib_load, mock_requests_ge
 @patch("inference.requests.get")
 @patch("inference.joblib.load")
 @patch("inference.pd.read_csv")
-def test_get_user_info_failure_returns_default(mock_read_csv, mock_joblib_load, mock_requests_get, mock_pipeline, my_movies_dataframe):
+def test_get_user_info_failure_returns_default(mock_read_csv, mock_joblib_load, mock_requests_get, my_movies_dataframe):
     mock_joblib_load.side_effect = [MagicMock(), MagicMock()]
     mock_read_csv.return_value = my_movies_dataframe
 
-    mock_response = MagicMock()
-    mock_response.status_code = 404
+    mock_response = MagicMock(status_code=404)
     mock_requests_get.return_value = mock_response
 
     engine = RecommenderEngine(model_dir="placeholder", movies_file="placeholder")
@@ -86,7 +83,7 @@ def test_get_user_info_failure_returns_default(mock_read_csv, mock_joblib_load, 
 
 @patch("inference.pd.read_csv")
 @patch("inference.joblib.load")
-def test_build_inference_df_creates_user_movie_pairs(mock_joblib_load, mock_read_csv, my_movies_dataframe, mock_pipeline, my_user):
+def test_build_inference_df_creates_user_movie_pairs(mock_joblib_load, mock_read_csv, my_movies_dataframe, my_user):
     mock_joblib_load.side_effect = [MagicMock(), MagicMock()]
     mock_read_csv.return_value = my_movies_dataframe
 
@@ -122,3 +119,47 @@ def test_recommend_returns_top_movies(mock_requests_get, mock_joblib_load, mock_
 
     assert isinstance(result, str)
     assert len(result.split(", ")) == 2
+
+
+# ADDITIONAL EDGE TESTS
+
+@patch("inference.FeatureBuilder")
+@patch("inference.joblib.load")
+@patch("inference.pd.read_csv")
+def test_recommend_handles_prediction_error(mock_read_csv, mock_joblib_load, mock_fb, my_movies_dataframe):
+    """Should not crash if model prediction fails"""
+    mock_joblib_load.side_effect = [MagicMock(), MagicMock()]
+    mock_read_csv.return_value = my_movies_dataframe
+
+    mock_fb_instance = MagicMock()
+    mock_fb_instance.build.side_effect = Exception("Failed to build features")
+    mock_fb.return_value = mock_fb_instance
+
+    engine = RecommenderEngine(model_dir="placeholder", movies_file="placeholder")
+
+    result = engine.recommend(user_id=999, top_n=3)
+    assert isinstance(result, str)
+    assert "error" in result.lower() or result == ""
+
+@patch("inference.joblib.load")
+@patch("inference.pd.read_csv")
+def test_inference_mean_embedding_fallback(mock_read_csv, mock_joblib_load):
+    """Covers cold start user handling with mean embeddings loaded"""
+    mean_embeds = {
+        "exp_user": {"f1": 0.1},
+        "imp_user": {"f1": 0.2},
+        "exp_movie": {"f1": 0.3},
+        "imp_movie": {"f1": 0.4},
+    }
+    mock_joblib_load.return_value = mean_embeds
+    mock_read_csv.return_value = pd.DataFrame({
+        "id": ["m1"], "title": ["Movie A"], "original_language": ["en"],
+        "release_date": ["2020-01-01"], "runtime": [100], "popularity": [1.0],
+        "vote_average": [5.0], "vote_count": [10], "genres": [["Drama"]],
+    })
+
+    engine = RecommenderEngine(model_dir="placeholder", movies_file="placeholder")
+    df = engine.build_inference_df({"user_id": 0, "age": -1, "gender": "U"})
+    assert isinstance(df, pd.DataFrame)
+
+

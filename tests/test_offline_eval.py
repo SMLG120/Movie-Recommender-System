@@ -1,11 +1,3 @@
-"""
-test_offline_eval.py
---------------------
-Offline evaluation test suite for the recommender system.
-
-This version tests the offline_eval.evaluate function with correct paths and function calls.
-"""
-
 import sys
 import unittest
 import os

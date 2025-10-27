@@ -1,7 +1,8 @@
 import pytest
+import joblib
 import pandas as pd
 import numpy as np
-from src.feature_builder import FeatureBuilder
+from feature_builder import FeatureBuilder
 
 
 # Fixtures (synthetic data)
@@ -92,19 +93,11 @@ def test_coercion_and_fill_missing():
     assert (df["occupation"] == "unknown").any()
     assert set(df["gender"].unique()) <= {"unknown", "U"}
 
-# def test_inference_mode_accepts_override():
-#     """Ensure inference mode requires df_override and processes it."""
-#     fb = FeatureBuilder(mode="inference")
-#     data = pd.DataFrame({"user_id": ["u1"], "movie_id": ["m1"], "age": [30]})
-#     df = fb.build(df_override=data)
-#     assert "user_id" in df.columns
-#     assert "movie_id" in df.columns
-#     assert not df.empty
-
-# def test_inference_mode_requires_override():
-#     fb = FeatureBuilder(mode="inference")
-#     with pytest.raises(ValueError, match="df_override"):
-#         fb.build()
+def test_warns_when_file_missing(tmp_path, capsys):
+    fb = FeatureBuilder(movies_file=str(tmp_path / "missing.csv"), mode="train")
+    assert fb.movies is None
+    out = capsys.readouterr().out
+    assert "[WARN] File not found" in out
 
 def test_merge_embeddings_handles_missing(mock_train_data):
     """Should not crash if some embeddings missing."""
@@ -117,3 +110,31 @@ def test_merge_embeddings_handles_missing(mock_train_data):
     df = fb.build()
     assert "user_id" in df.columns
     assert not df.empty
+
+def test_inference_merge_mean_embeddings(tmp_path):
+    mean_embeds = {
+        "exp_user": {"f1": 0.1},
+        "imp_user": {"f1": 0.2},
+        "exp_movie": {"f1": 0.3},
+        "imp_movie": {"f1": 0.4},
+    }
+    joblib.dump(mean_embeds, tmp_path / "mean_embeddings.joblib")
+
+    fb = FeatureBuilder(mode="inference")
+    df = pd.DataFrame({"user_id": ["u1"], "movie_id": ["m1"]})
+    df_out = fb._merge_embeddings(df, mean_path=tmp_path / "mean_embeddings.joblib")
+
+    assert all(col in df_out.columns for col in ["exp_user_f1", "imp_movie_f1"])
+
+def test_handle_dates_and_clip_outliers():
+    fb = FeatureBuilder(mode="train")
+    df = pd.DataFrame({
+        "age": [200],
+        "runtime": [1000],
+        "vote_count": [-5],
+        "release_date": ["invalid-date"]
+    })
+    df = fb._handle_dates_and_bins(df)
+    df = fb._clip_outliers(df)
+    assert df["age"].iloc[0] <= 100
+    assert df["runtime"].iloc[0] <= 720
