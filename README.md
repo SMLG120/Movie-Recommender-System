@@ -91,6 +91,19 @@ docker build -f docker/Dockerfile -t movie-recommender:v1.0 .
 # Example run (with log rotation limits and port mapping):
 docker run -it --log-opt max-size=50m --log-opt max-file=5 -p 8080:8080 movie-recommender:v1.0
 ```
+**Monitoring Stack**
+Run below code to start monitoring service
+```bash
+cd monitoring
+docker compose up --build
+```
+This will host:
+1. Recommender API at port 8080
+2. Prometheus at port 9090
+3. Grafana at port 3000
+
+Grafana login → admin / admin
+Import dashboard → monitoring/grafana-dashboard.json
 
 ### Models & artifacts
 
