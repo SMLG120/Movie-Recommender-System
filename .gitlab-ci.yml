@@ -34,7 +34,7 @@ cache:
   key: "${CI_COMMIT_REF_SLUG}"
   paths:
     - .pip-cache/
-    - venv/
+   
 
 
 # PIPELINE STAGES
@@ -59,7 +59,7 @@ test:unit:
     - pip install -r requirements.txt
     - pip install pytest pytest-cov pytest-xdist
   script:
-    - pytest -q -n auto tests/unittests --maxfail=1 --disable-warnings
+    - pytest -vv tests/unittests --maxfail=1 --disable-warnings
              --cov=src --cov-report=term-missing --cov-report=xml
              --junitxml=pytest-unit.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
