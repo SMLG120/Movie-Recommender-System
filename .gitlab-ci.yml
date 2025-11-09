@@ -16,7 +16,7 @@ variables:
   # Python Configuration
   PYTHON_VERSION: "3.10"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
-  
+  PYTHONPATH: "$CI_PROJECT_DIR/src:$CI_PROJECT_DIR"
   # Docker Configuration
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
