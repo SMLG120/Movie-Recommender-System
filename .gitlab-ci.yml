@@ -34,8 +34,6 @@ cache:
   key: "${CI_COMMIT_REF_SLUG}"
   paths:
     - .pip-cache/
-    - venv/
-
 
 # PIPELINE STAGES
 
