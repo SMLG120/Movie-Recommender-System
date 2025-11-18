@@ -33,8 +33,17 @@
     "p10_genres": 0.0,
     "p90_genres": 7.0
   },
-  "online_log_stats": {
-    "n_recommendation_events": 3,
-    "n_quality_events": 2
+  "offline_log_stats": {
+    "n_rows": 92850,
+    "n_users": 42991,
+    "n_movies": 21941,
+    "mean_interactions_per_user": 2.1597543671931336,
+    "median_interactions_per_user": 1.0,
+    "mean_interactions_per_movie": 4.231803472950185,
+    "median_interactions_per_movie": 2.0,
+    "mean_rating": 3.7186537425955843,
+    "std_rating": 0.744015399843659,
+    "min_rating": 1.0,
+    "max_rating": 5.0
   }
 }

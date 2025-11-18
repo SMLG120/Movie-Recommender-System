@@ -5,13 +5,14 @@ from dataclasses import dataclass, asdict
 import numpy as np
 import pandas as pd
 
+# Paths
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = REPO_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw_data"
-ONLINE_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "online_metrics.json"
 
 
-# ---------- Data classes for clean, serializable summaries ----------
+# ---------- Data classes for clean summaries ----------
+
 @dataclass
 class PopularityStats:
     n_movies: int
@@ -26,12 +27,16 @@ class GroupQualityStats:
     group: str
     n_interactions: int
     mean_rating: float
-    mae: float | None = None  # you can fill this later from offline eval
+    mae: float | None = None  # placeholder if you later add per-group MAE
 
 
-# ---------- Feedback loop: popularity amplification ----------
+# ---------- Feedback loop: popularity amplification (OFFLINE) ----------
 
 def analyze_popularity_feedback() -> PopularityStats:
+    """
+    Analyze how interactions concentrate on popular movies
+    using the offline training data.
+    """
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv")
 
     # interactions per movie in training data
@@ -45,7 +50,7 @@ def analyze_popularity_feedback() -> PopularityStats:
     n_movies = len(stats)
     corr = stats["interaction_count"].corr(stats["popularity"])
 
-    # how concentrated are interactions? e.g., top 10% movies by interaction count
+    # how concentrated are interactions: top 10% movies by interaction_count
     k = max(1, int(0.1 * n_movies))
     top = stats.sort_values("interaction_count", ascending=False).head(k)
     share = top["interaction_count"].sum() / stats["interaction_count"].sum()
@@ -59,15 +64,18 @@ def analyze_popularity_feedback() -> PopularityStats:
     )
 
 
-# ---------- Fairness: quality by user group (e.g., gender) ----------
+# ---------- Fairness: quality by user group (OFFLINE) ----------
 
 def analyze_user_group_fairness(group_col: str = "gender") -> list[GroupQualityStats]:
+    """
+    Offline group-level stats (data volume and mean rating) for a given column,
+    e.g., gender or age_bin.
+    """
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv")
 
     if group_col not in df.columns:
         raise ValueError(f"{group_col} not in training_data_v2.csv columns")
 
-    # use explicit rating if available
     rating_col = "rating" if "rating" in df.columns else None
 
     group_stats: list[GroupQualityStats] = []
@@ -79,19 +87,19 @@ def analyze_user_group_fairness(group_col: str = "gender") -> list[GroupQualityS
                 group=str(group_value),
                 n_interactions=int(n),
                 mean_rating=mean_rating,
-                mae=None,  # you can plug in per-group MAE later
+                mae=None,  # you can fill this later with per-group MAE
             )
         )
 
     return group_stats
 
 
-# ---------- Optional: genre diversity as a “filter bubble” proxy ----------
+# ---------- Genre diversity: distinct genres per user (OFFLINE) ----------
 
 def analyze_genre_diversity():
     """
     Approximate filter-bubble risk by looking at genre diversity per user
-    in the training data (no timestamps, so this is a snapshot).
+    in the training data (snapshot, no timestamps).
     """
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv", usecols=["user_id", "movie_id"])
     movies = pd.read_csv(RAW_DIR / "movies.csv", usecols=["id", "genres"])
@@ -121,26 +129,46 @@ def analyze_genre_diversity():
     }
 
 
-# ---------- Log-based overview (small now, scalable later) ----------
+# ---------- Offline “log-based” dataset overview ----------
 
 def analyze_logs():
     """
-    Very lightweight example using evaluation/Online/logs/online_metrics.json.
-    In real deployment you'll just have more events and can extend this.
+    Offline summary based on training_data_v2.csv.
+    This intentionally ignores online metrics like CTR and satisfaction,
+    which are handled in separate monitoring scripts.
     """
-    if not ONLINE_LOG.exists():
-        return {}
+    df = pd.read_csv(DATA_DIR / "training_data_v2.csv")
 
-    with open(ONLINE_LOG) as f:
-        logs = json.load(f)
+    n_rows = len(df)
+    n_users = df["user_id"].nunique()
+    n_movies = df["movie_id"].nunique()
 
-    recs = logs.get("recommendations", [])
-    qualities = logs.get("recommendation_quality", [])
+    # rating stats if rating column exists
+    rating_stats = {}
+    if "rating" in df.columns:
+        rating_stats = {
+            "mean_rating": float(df["rating"].mean()),
+            "std_rating": float(df["rating"].std()),
+            "min_rating": float(df["rating"].min()),
+            "max_rating": float(df["rating"].max()),
+        }
 
-    return {
-        "n_recommendation_events": len(recs),
-        "n_quality_events": len(qualities),
+    # interactions per user / per movie
+    inter_per_user = df.groupby("user_id").size()
+    inter_per_movie = df.groupby("movie_id").size()
+
+    offline_summary = {
+        "n_rows": int(n_rows),
+        "n_users": int(n_users),
+        "n_movies": int(n_movies),
+        "mean_interactions_per_user": float(inter_per_user.mean()),
+        "median_interactions_per_user": float(inter_per_user.median()),
+        "mean_interactions_per_movie": float(inter_per_movie.mean()),
+        "median_interactions_per_movie": float(inter_per_movie.median()),
     }
+    offline_summary.update(rating_stats)
+
+    return offline_summary
 
 
 # ---------- CLI entry point ----------
@@ -149,17 +177,22 @@ def main(out_path: Path | None = None):
     pop_stats = analyze_popularity_feedback()
     fairness_gender = analyze_user_group_fairness("gender")
     genre_div = analyze_genre_diversity()
-    log_stats = analyze_logs()
+    offline_log_stats = analyze_logs()
 
     summary = {
         "popularity_stats": asdict(pop_stats),
         "fairness_by_gender": [asdict(g) for g in fairness_gender],
         "genre_diversity": genre_div,
-        "online_log_stats": log_stats,
+        "offline_log_stats": offline_log_stats,
     }
 
     if out_path is None:
-        out_path = REPO_ROOT / "evaluation" / "Offline" / "offline_feedback_analysis.json"
+        out_path = (
+            REPO_ROOT
+            / "evaluation"
+            / "Offline"
+            / "offline_feedback_analysis.json"
+        )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(out_path, "w") as f:
