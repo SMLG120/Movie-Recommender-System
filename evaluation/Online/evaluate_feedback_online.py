@@ -1,12 +1,33 @@
 """
 Feedback loop & fairness detector for online metrics.
 
+Schema of evaluation/Online/logs/online_metrics.json:
+
+{
+  "recommendations": [
+    {"timestamp": "...", "user_id": "u1", "items": ["m1", "m2", "m3"]},
+    ...
+  ],
+  "user_interactions": [
+    {"timestamp": "...", "user_id": "u1", "item_id": "m2",
+     "action_type": "click" | "watch", "watch_time": 20},
+    ...
+  ],
+  "recommendation_quality": [
+    {"timestamp": "...", "user_id": "u1",
+     "recommendations": ["m1","m2","m3"],
+     "selected": "m2", "satisfaction": 0.8},
+    ...
+  ],
+  ...
+}
+
 Usage (from repo root):
     python monitoring/feedback_detection.py
 
 Exit code:
-    0  -> no issue detected
-    1  -> feedback loop or fairness issue detected (caller should abort canary / trigger retrain)
+    0 -> no issue detected
+    1 -> feedback loop or fairness issue detected
 """
 
 from __future__ import annotations
@@ -14,29 +35,26 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass, asdict
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 
-# ---------- CONFIG ----------
+# ----------------- CONFIG -----------------
 
-# Thresholds (you can tune these)
-CTR_THRESHOLD = 0.10              # if global CTR < 10%, treat as feedback-loop issue
-SAT_RATIO_THRESHOLD = 0.85        # if sat_female / sat_male < 0.85, treat as fairness issue
+# Thresholds – tune these if you want
+CTR_THRESHOLD = 0.10           # if CTR < 10% -> feedback issue
+SAT_RATIO_THRESHOLD = 0.85     # if sat_F / sat_M < 0.85 -> fairness issue
 
-# Paths (adjust if your structure differs)
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = REPO_ROOT / "data"
 ONLINE_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "online_metrics.json"
 FEEDBACK_EVENTS_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "feedback_events.json"
+TRAINING_DATA = REPO_ROOT / "data" / "training_data_v2.csv"   # needs columns: user_id, gender
 
-TRAINING_DATA = DATA_DIR / "training_data_v2.csv"  # used to map user_id -> gender
 
-
-# ---------- DATA CLASSES ----------
+# ----------------- DATA CLASS -----------------
 
 @dataclass
 class DetectionResult:
@@ -48,119 +66,106 @@ class DetectionResult:
     sat_ratio: Optional[float]
     sat_ratio_threshold: float
     n_rec_events: int
+    n_interaction_events: int
     n_quality_events: int
 
 
-# ---------- HELPERS TO LOAD DATA ----------
+# ----------------- LOADERS -----------------
 
 def load_online_metrics() -> Dict[str, Any]:
     if not ONLINE_LOG.exists():
-        print(f"[feedback_detection] No online metrics log found at {ONLINE_LOG}", file=sys.stderr)
-        return {"recommendations": [], "recommendation_quality": []}
+        print(f"[feedback_detection] No online metrics log at {ONLINE_LOG}", file=sys.stderr)
+        return {"recommendations": [], "user_interactions": [], "recommendation_quality": []}
 
     with ONLINE_LOG.open() as f:
         data = json.load(f)
 
-    # Ensure structure
     data.setdefault("recommendations", [])
+    data.setdefault("user_interactions", [])
     data.setdefault("recommendation_quality", [])
     return data
 
 
-def load_user_gender_mapping() -> Dict[int, str]:
+def load_user_gender_mapping() -> Dict[str, str]:
     """
-    Build a mapping user_id -> gender from training_data_v2.csv.
+    Build a mapping user_id (as STRING) -> gender from training_data_v2.csv.
     Assumes columns: user_id, gender.
     """
     if not TRAINING_DATA.exists():
-        print(f"[feedback_detection] No training data found at {TRAINING_DATA}", file=sys.stderr)
+        print(f"[feedback_detection] No training data at {TRAINING_DATA}", file=sys.stderr)
         return {}
 
     df = pd.read_csv(TRAINING_DATA, usecols=["user_id", "gender"])
     df = df.dropna(subset=["user_id"])
-    # If multiple rows per user, just take the first non-null gender
+    df["user_id"] = df["user_id"].astype(str)
     df = df.drop_duplicates(subset=["user_id"], keep="first")
-    mapping = {}
+
+    mapping: Dict[str, str] = {}
     for _, row in df.iterrows():
-        try:
-            uid = int(row["user_id"])
-        except Exception:
-            continue
+        uid = str(row["user_id"])
         g = row.get("gender", "unknown")
         mapping[uid] = str(g) if pd.notna(g) else "unknown"
     return mapping
 
 
-# ---------- METRIC COMPUTATION ----------
+# ----------------- METRIC COMPUTATION -----------------
 
-def compute_global_ctr(recommendations: List[Dict[str, Any]]) -> float:
+def compute_ctr(
+    recommendations: List[Dict[str, Any]],
+    interactions: List[Dict[str, Any]],
+) -> float:
     """
-    Compute CTR from recommendations events.
+    CTR = (# interactions where item was recommended to that user)
+          / (total number of recommended items)
 
-    Assumes each recommendation event has either:
-      - 'hits' and 'k' fields, OR
-      - 'hits' and 'items' (list of item ids)
-
-    If your schema is different, adjust this function accordingly.
+    Very simple approximation based on your JSON schema.
     """
-    total_hits = 0
+
+    # Build user -> set/list of recommended items
+    user_to_recommended: Dict[str, List[str]] = {}
     total_recommended = 0
 
-    for ev in recommendations:
-        hits = ev.get("hits")
-        if hits is None:
-            # If you log per-item info, you could define hits differently
-            # For simplicity, fall back to 0 if missing
-            hits = 0
-        total_hits += int(hits)
-
-        if "k" in ev:
-            total_recommended += int(ev["k"])
-        elif "items" in ev and isinstance(ev["items"], list):
-            total_recommended += len(ev["items"])
-        else:
-            # If you store a pre-computed CTR in the event itself,
-            # you could aggregate it differently.
-            pass
+    for rec in recommendations:
+        uid = str(rec.get("user_id"))
+        items = rec.get("items", []) or []
+        items = [str(x) for x in items]
+        total_recommended += len(items)
+        user_to_recommended.setdefault(uid, []).extend(items)
 
     if total_recommended == 0:
         return 0.0
 
-    return total_hits / total_recommended
+    # Count interactions where item_id is in that user's recommended items
+    hits = 0
+    for ev in interactions:
+        uid = str(ev.get("user_id"))
+        item_id = str(ev.get("item_id"))
+        rec_items = user_to_recommended.get(uid, [])
+        if item_id in rec_items:
+            hits += 1
+
+    return hits / total_recommended
 
 
 def compute_group_satisfaction(
     quality_events: List[Dict[str, Any]],
-    user_gender: Dict[int, str],
+    user_gender: Dict[str, str],
 ) -> Dict[str, float]:
     """
-    Compute average satisfaction per gender using recommendation_quality events.
+    Compute average satisfaction per gender.
 
-    Assumes each quality event has:
-      - 'user_id'
-      - 'satisfaction' (float)
-
-    If your schema uses a different field (e.g. 'quality_score'),
-    adjust accordingly.
+    We look up gender by user_id using training_data_v2.csv.
+    If a user_id is not found, it is grouped as 'unknown'.
     """
+
     sats_by_gender: Dict[str, List[float]] = {}
 
     for ev in quality_events:
-        uid = ev.get("user_id")
-        if uid is None:
-            continue
-        try:
-            uid_int = int(uid)
-        except Exception:
-            continue
-
-        g = user_gender.get(uid_int, "unknown")
+        uid = str(ev.get("user_id"))
+        g = user_gender.get(uid, "unknown")
         sat_val = ev.get("satisfaction")
-
         if sat_val is None:
-            # You could also define satisfaction from (actual_rating, estimated_rating) here.
             continue
-
         try:
             s = float(sat_val)
         except Exception:
@@ -170,20 +175,21 @@ def compute_group_satisfaction(
 
     avg_sats: Dict[str, float] = {}
     for g, vals in sats_by_gender.items():
-        if len(vals) > 0:
+        if vals:
             avg_sats[g] = sum(vals) / len(vals)
 
     return avg_sats
 
 
-# ---------- DETECTION LOGIC ----------
+# ----------------- DETECTION -----------------
 
 def detect_feedback_and_fairness() -> DetectionResult:
-    metrics = load_online_metrics()
-    recs = metrics.get("recommendations", [])
-    qual = metrics.get("recommendation_quality", [])
+    data = load_online_metrics()
+    recs = data["recommendations"]
+    inter = data["user_interactions"]
+    qual = data["recommendation_quality"]
 
-    ctr = compute_global_ctr(recs)
+    ctr = compute_ctr(recs, inter)
     print(f"[feedback_detection] Global CTR = {ctr:.4f} (threshold {CTR_THRESHOLD})")
 
     user_gender_map = load_user_gender_mapping()
@@ -208,13 +214,12 @@ def detect_feedback_and_fairness() -> DetectionResult:
 
     issue: Optional[str] = None
 
-    # Rule 1: feedback loop / degradation based on CTR
+    # Rule 1: feedback / degradation based on CTR
     if ctr < CTR_THRESHOLD:
-        issue = "feedback_popularity"
+        issue = "feedback_low_ctr"
 
-    # Rule 2: fairness degradation based on group satisfaction
+    # Rule 2: fairness degradation based on gender satisfaction
     if sat_ratio is not None and sat_ratio < SAT_RATIO_THRESHOLD:
-        # if there is already a feedback issue, append; else create fairness issue
         issue = (issue + "+fairness_gender") if issue else "fairness_gender"
 
     return DetectionResult(
@@ -226,14 +231,12 @@ def detect_feedback_and_fairness() -> DetectionResult:
         sat_ratio=sat_ratio,
         sat_ratio_threshold=SAT_RATIO_THRESHOLD,
         n_rec_events=len(recs),
+        n_interaction_events=len(inter),
         n_quality_events=len(qual),
     )
 
 
 def append_feedback_event(result: DetectionResult) -> None:
-    """
-    Append a detection event to feedback_events.json.
-    """
     FEEDBACK_EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
 
     if FEEDBACK_EVENTS_LOG.exists():
@@ -252,52 +255,32 @@ def append_feedback_event(result: DetectionResult) -> None:
     with FEEDBACK_EVENTS_LOG.open("w") as f:
         json.dump(events, f, indent=2)
 
-    print(f"[feedback_detection] Logged feedback event to {FEEDBACK_EVENTS_LOG}")
+    print(f"[feedback_detection] Logged event to {FEEDBACK_EVENTS_LOG}")
 
-
-# ---------- PLACEHOLDERS FOR ACTIONS (RETRAIN / ABORT CANARY) ----------
 
 def abort_canary_release() -> None:
-    """
-    Placeholder: implement your actual canary abort logic here.
-    For the milestone, printing a clear message is enough, and CI
-    can treat non-zero exit codes as abort signals.
-    """
-    print("[feedback_detection] ABORTING CANARY: issue detected.")
+    # For the milestone, printing is enough; CI can also use exit code 1.
+    print("[feedback_detection] ABORTING CANARY RELEASE (issue detected).")
 
 
 def trigger_retraining_pipeline() -> None:
-    """
-    Placeholder: implement your actual retraining trigger here.
-    Example options:
-      - Call a shell script: subprocess.run(["bash", "scripts/run_pipeline.sh"])
-      - Call a Python entrypoint.
-      - Trigger a GitLab CI job via API (advanced).
-    """
+    # Hook this into your real pipeline if you want.
     print("[feedback_detection] TRIGGERING RETRAINING PIPELINE (placeholder).")
 
-
-# ---------- MAIN ----------
 
 def main() -> None:
     result = detect_feedback_and_fairness()
 
     if result.issue is None:
-        print("[feedback_detection] No feedback loop or fairness issue detected.")
-        # Still log a “clean” event if you want
+        print("[feedback_detection] No feedback or fairness issue detected.")
         append_feedback_event(result)
         sys.exit(0)
 
     print(f"[feedback_detection] ISSUE DETECTED: {result.issue}")
     append_feedback_event(result)
-
-    # Take actions (for the milestone, printing is enough)
     abort_canary_release()
     trigger_retraining_pipeline()
-
-    # Non-zero exit so CI/canary pipeline can stop
     sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
