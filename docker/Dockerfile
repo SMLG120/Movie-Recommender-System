@@ -14,8 +14,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy your app
+# Copy your app and .env file
 COPY . .
+
+# Ensure .env is available at runtime for provenance system
+# (docker-compose will pass env vars via environment: section)
+# If using local .env file, it will be copied here and loaded by dotenv
 
 # Use the correct port your service listens on (8080 in your logs)
 EXPOSE 8080

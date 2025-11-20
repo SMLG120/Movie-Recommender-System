@@ -9,6 +9,8 @@ Movie Recommender API – Production Server with Monitoring
 import os
 import logging
 from typing import List, Dict, Any, Optional
+import json
+import pprint
 
 from flask import Flask, request, jsonify, Response
 from prometheus_client import Counter
@@ -20,6 +22,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from src.inference import RecommenderEngine  
+from provenance import (
+    register_model,
+    record_prediction,
+    trace_prediction,
+    get_model_by_version,
+    get_predictions_by_model
+)
 
 from prometheus_client import Histogram
 # Extend default buckets up to 5 minutes
@@ -159,6 +168,76 @@ def event_rating():
     ERR_COUNT.inc()
 
     return jsonify({"recorded": True}), 200
+
+
+@app.route("/provenance/test", methods=["POST"])
+def provenance_test():
+    """
+    Test the provenance system: register model, record predictions, trace prediction, query predictions.
+    """
+    print("\n" + "="*60)
+    print("Provenance System - Test Run")
+    print("="*60 + "\n")
+
+    # Step 1: Register a model
+    print("Step 1: Registering model...")
+    model_version = register_model({
+        "git_commit": "a7b9c3def456",
+        "artifact_path": "/models/xgb_model_v1.pkl",
+        "pipeline_version": "pipeline_v1.2",
+        "python_env_hash": "py3.10-reqs-abc123",
+        "training_data_id": "data_20251115",
+        "training_data_range_start": "2025-11-10",
+        "training_data_range_end": "2025-11-15",
+        "training_row_count": 5000,
+        "training_missing_values_json": {"age": 15, "income": 30},
+        "metrics_json": {"ndcg@20": 0.142, "recall@20": 0.18}
+    })
+    print(f"✓ Model registered: {model_version}\n")
+
+    # Step 2: Record predictions
+    print("Step 2: Recording predictions...")
+    request_ids = []
+    for i in range(3):
+        request_id = record_prediction({
+            "userid": f"user_{i+1}",
+            "model_version": model_version,
+            "prediction": [f"movie_{j}" for j in range(5)],
+            "input_data": {
+                "user_history": [1, 2, 3],
+                "user_features": {"age": 25, "country": "US"}
+            },
+            "extra_json": {
+                "inference_latency_ms": 42 + i*10,
+                "model_confidence": 0.85 + i*0.02
+            }
+        })
+        request_ids.append(request_id)
+        print(f"  ✓ Prediction {i+1} recorded: {request_id}")
+    print()
+
+    # Step 3: Trace a prediction
+    print("Step 3: Tracing first prediction...")
+    trace_result = trace_prediction(request_ids[0])
+    if trace_result:
+        print("Prediction Event:")
+        pprint.pprint(trace_result["event"], width=60)
+        print("\nModel Provenance:")
+        pprint.pprint(trace_result["provenance"], width=60)
+    else:
+        print("✗ Prediction not found")
+    print()
+
+    # Step 4: Query predictions by model
+    print("Step 4: Querying predictions by model...")
+    predictions = get_predictions_by_model(model_version, limit=10)
+    print(f"✓ Found {len(predictions)} predictions for model {model_version}\n")
+
+    print("="*60)
+    print("✓ Provenance system test completed successfully!")
+    print("="*60 + "\n")
+
+    return jsonify({"status": "provenance test completed"}), 200
 
 
 if __name__ == "__main__":

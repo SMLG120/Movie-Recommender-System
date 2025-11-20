@@ -6,25 +6,57 @@ from datetime import datetime
 from typing import Dict, Optional, Any
 
 from dotenv import load_dotenv
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 
 # -------------------------------------------------------------------
-# Load environment variables
+# Load Environment Variables
 # -------------------------------------------------------------------
-load_dotenv()
 
-MONGO_URI = os.getenv("MONGO_URI")
-if not MONGO_URI:
-    raise RuntimeError("ERROR: MONGO_URI is not set in your .env file")
+# Load .env from project root (parent of src/)
+dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(dotenv_path)
 
-client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
-db = client["provenance_db"]
+MONGO_USER = os.getenv("MONGO_USER")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
+MONGO_DB = os.getenv("MONGO_DB")
+MONGO_HOST = os.getenv("MONGO_HOST", "mongodb")
+MONGO_PORT = int(os.getenv("MONGO_PORT", 27017))
 
+# Validate required environment variables
+if not MONGO_USER or not MONGO_PASSWORD:
+    raise ValueError(
+        "Missing required environment variables: MONGO_USER and MONGO_PASSWORD. "
+        "Please check your .env file."
+    )
+
+MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DB}?authSource=admin"
+
+# -------------------------------------------------------------------
+# MongoDB Connection
+# -------------------------------------------------------------------
+
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command('ping')
+    print(f"✓ Connected to MongoDB at {MONGO_HOST}:{MONGO_PORT}")
+except Exception as e:
+    print(f"✗ Failed to connect to MongoDB: {e}")
+    raise
+
+db = client[MONGO_DB]
 provenance_collection = db["model_provenance"]
 predictions_collection = db["prediction_events"]
 
+# Create indexes for query performance (explained below)
+provenance_collection.create_index([("model_version", ASCENDING)], unique=True)
+predictions_collection.create_index([("request_id", ASCENDING)], unique=True)
+predictions_collection.create_index([("model_version", ASCENDING)])
+predictions_collection.create_index([("userid", ASCENDING)])
+predictions_collection.create_index([("timestamp", ASCENDING)])
+
+
 # -------------------------------------------------------------------
-# Helpers
+# Helper Functions
 # -------------------------------------------------------------------
 
 def _now() -> str:
@@ -33,9 +65,8 @@ def _now() -> str:
 
 
 def _hash_input(data: Any) -> str:
-    """Compute SHA-256 hash of an input object (list, dict, DF)."""
+    """Compute SHA-256 hash of input data."""
     try:
-        # pandas / numpy support
         if hasattr(data, "to_dict"):
             data = data.to_dict()
     except Exception:
@@ -46,154 +77,139 @@ def _hash_input(data: Any) -> str:
 
 
 def _compute_input_stats(data: Any) -> Dict[str, Any]:
-    """
-    Compute:
-      - row count
-      - total missing values
-    Supports:
-      - pandas DataFrames
-      - list of dicts
-    """
+    """Compute row count and missing value count from input data."""
     stats = {
         "input_row_count": None,
         "input_missing_count": None
     }
 
-    # pandas DataFrame
     if hasattr(data, "shape"):
         stats["input_row_count"] = int(data.shape[0])
-
         if hasattr(data, "isnull"):
             stats["input_missing_count"] = int(data.isnull().sum().sum())
         return stats
 
-    # list of dictionaries
     if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
         stats["input_row_count"] = len(data)
-        missing = 0
-        for row in data:
-            for v in row.values():
-                if v is None:
-                    missing += 1
+        missing = sum(1 for row in data for v in row.values() if v is None)
         stats["input_missing_count"] = missing
         return stats
 
-    # Unknown input type
     return stats
 
 
 # -------------------------------------------------------------------
-# REGISTER MODEL
+# Register Model
 # -------------------------------------------------------------------
 
 def register_model(metadata: Dict) -> str:
     """
-    Store model metadata in MongoDB with full provenance.
-    Required: git_commit, artifact_path
+    Store model metadata in MongoDB.
+    Required fields: git_commit, artifact_path
     """
-
     metadata = metadata.copy()
 
-    # Validate essential fields
     required = ["git_commit", "artifact_path"]
     missing = [r for r in required if r not in metadata]
     if missing:
         raise ValueError(f"Missing required model metadata fields: {missing}")
 
     model_version = metadata.get("model_version") or (
-        datetime.utcnow().strftime("v%Y%m%dT%H%M%SZ-") +
-        uuid.uuid4().hex[:8]
+        datetime.utcnow().strftime("v%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:8]
     )
     metadata["model_version"] = model_version
     metadata.setdefault("model_tag", model_version)
     metadata.setdefault("build_time", _now())
 
-    # Convert nested fields to proper JSON strings for consistent storage
     for field in ["metrics_json", "training_missing_values_json"]:
         if field in metadata and not isinstance(metadata[field], str):
             metadata[field] = json.dumps(metadata[field])
 
     provenance_collection.insert_one(metadata)
-
     return model_version
 
 
 # -------------------------------------------------------------------
-# RECORD PREDICTION
+# Record Prediction
 # -------------------------------------------------------------------
 
-def record_prediction(event: Dict) -> None:
+def record_prediction(event: Dict) -> str:
     """
-    Record a prediction event with:
-      - request_id
-      - model_version
-      - model_id (optional)
-      - input_hash
-      - automatic input statistics
+    Record a prediction event with input statistics and hashing.
+    Required fields: userid, model_version, prediction, input_data
+    Returns request_id.
     """
-
     event = event.copy()
 
-    # Check required fields
     required = ["userid", "model_version", "prediction", "input_data"]
     missing = [k for k in required if k not in event]
     if missing:
         raise ValueError(f"Missing required prediction fields: {missing}")
 
-    # Generate IDs and timestamps
-    event.setdefault("request_id", str(uuid.uuid4()))
+    request_id = event.get("request_id") or str(uuid.uuid4())
+    event["request_id"] = request_id
     event.setdefault("timestamp", _now())
 
-    # Fix typo: model_id instead of mode_id
-    event.setdefault("model_id", None)
-
-    # Compute input hash
     event["input_hash"] = _hash_input(event["input_data"])
 
-    # Compute statistics
     input_stats = _compute_input_stats(event["input_data"])
     event.update(input_stats)
 
-    # You may want to remove the raw data from MongoDB for storage size reasons
     del event["input_data"]
 
-    # Convert any nested dicts to strings for consistency
     if "extra_json" in event and not isinstance(event["extra_json"], str):
         event["extra_json"] = json.dumps(event["extra_json"])
 
     predictions_collection.insert_one(event)
+    return request_id
 
 
 # -------------------------------------------------------------------
-# TRACE PREDICTION
+# Trace Prediction
 # -------------------------------------------------------------------
 
 def trace_prediction(request_id: str) -> Optional[Dict]:
     """
-    Return:
-      - prediction event
-      - associated model provenance
+    Retrieve a prediction event and its associated model provenance.
+    Returns dict with 'event' and 'provenance' keys, or None if not found.
     """
-
     event = predictions_collection.find_one({"request_id": request_id})
     if not event:
         return None
 
     model_version = event.get("model_version")
-    prov = None
+    provenance = None
     if model_version:
-        prov = provenance_collection.find_one({"model_version": model_version})
+        provenance = provenance_collection.find_one({"model_version": model_version})
 
     return {
         "event": event,
-        "provenance": prov
+        "provenance": provenance
     }
 
-# -------------------------------------------------------
-# Create MongoDB Indexes for high performance
-# -------------------------------------------------------
 
-provenance_collection.create_index("model_version", unique=True)
-predictions_collection.create_index("request_id", unique=True)
-predictions_collection.create_index("model_version")
-predictions_collection.create_index("userid")
+# -------------------------------------------------------------------
+# Query Functions
+# -------------------------------------------------------------------
+
+def get_model_by_version(model_version: str) -> Optional[Dict]:
+    """Retrieve model provenance by version."""
+    return provenance_collection.find_one({"model_version": model_version})
+
+
+def get_predictions_by_model(model_version: str, limit: int = 100) -> list:
+    """Retrieve recent predictions for a given model version."""
+    return list(
+        predictions_collection.find({"model_version": model_version})
+        .sort("timestamp", -1)
+        .limit(limit)
+    )
+
+
+def get_predictions_by_user(userid: str, limit: int = 50) -> list:
+    """Retrieve recent predictions for a given user."""
+    return list(
+        predictions_collection.find({"userid": userid})
+        .sort("timestamp", -1)
+        .limit(limit)
+    )
