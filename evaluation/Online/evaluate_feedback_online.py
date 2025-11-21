@@ -41,20 +41,17 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-
-# ----------------- CONFIG -----------------
-
-# Thresholds – tune these if you want
+# Thresholds – tunable
 CTR_THRESHOLD = 0.10           # if CTR < 10% -> feedback issue
 SAT_RATIO_THRESHOLD = 0.85     # if sat_F / sat_M < 0.85 -> fairness issue
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ONLINE_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "online_metrics.json"
 FEEDBACK_EVENTS_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "feedback_events.json"
-TRAINING_DATA = REPO_ROOT / "data" / "training_data_v2.csv"   # needs columns: user_id, gender
+TRAINING_DATA = REPO_ROOT / "data" / "training_data_v2.csv"   
 
 
-# ----------------- DATA CLASS -----------------
+# Data classes
 
 @dataclass
 class DetectionResult:
@@ -70,7 +67,7 @@ class DetectionResult:
     n_quality_events: int
 
 
-# ----------------- LOADERS -----------------
+# Loader
 
 def load_online_metrics() -> Dict[str, Any]:
     if not ONLINE_LOG.exists():
@@ -87,10 +84,6 @@ def load_online_metrics() -> Dict[str, Any]:
 
 
 def load_user_gender_mapping() -> Dict[str, str]:
-    """
-    Build a mapping user_id (as STRING) -> gender from training_data_v2.csv.
-    Assumes columns: user_id, gender.
-    """
     if not TRAINING_DATA.exists():
         print(f"[feedback_detection] No training data at {TRAINING_DATA}", file=sys.stderr)
         return {}
@@ -108,20 +101,13 @@ def load_user_gender_mapping() -> Dict[str, str]:
     return mapping
 
 
-# ----------------- METRIC COMPUTATION -----------------
+# Metrics
 
 def compute_ctr(
     recommendations: List[Dict[str, Any]],
     interactions: List[Dict[str, Any]],
 ) -> float:
-    """
-    CTR = (# interactions where item was recommended to that user)
-          / (total number of recommended items)
-
-    Very simple approximation based on your JSON schema.
-    """
-
-    # Build user -> set/list of recommended items
+    # Build user 
     user_to_recommended: Dict[str, List[str]] = {}
     total_recommended = 0
 
@@ -135,7 +121,7 @@ def compute_ctr(
     if total_recommended == 0:
         return 0.0
 
-    # Count interactions where item_id is in that user's recommended items
+    # Count interactions
     hits = 0
     for ev in interactions:
         uid = str(ev.get("user_id"))
@@ -151,13 +137,6 @@ def compute_group_satisfaction(
     quality_events: List[Dict[str, Any]],
     user_gender: Dict[str, str],
 ) -> Dict[str, float]:
-    """
-    Compute average satisfaction per gender.
-
-    We look up gender by user_id using training_data_v2.csv.
-    If a user_id is not found, it is grouped as 'unknown'.
-    """
-
     sats_by_gender: Dict[str, List[float]] = {}
 
     for ev in quality_events:
@@ -181,7 +160,7 @@ def compute_group_satisfaction(
     return avg_sats
 
 
-# ----------------- DETECTION -----------------
+# Detection of feedback loop and fairness issues
 
 def detect_feedback_and_fairness() -> DetectionResult:
     data = load_online_metrics()
@@ -214,11 +193,11 @@ def detect_feedback_and_fairness() -> DetectionResult:
 
     issue: Optional[str] = None
 
-    # Rule 1: feedback / degradation based on CTR
+    # feedback based on CTR
     if ctr < CTR_THRESHOLD:
         issue = "feedback_low_ctr"
 
-    # Rule 2: fairness degradation based on gender satisfaction
+    # Feedback based on gender satisfaction
     if sat_ratio is not None and sat_ratio < SAT_RATIO_THRESHOLD:
         issue = (issue + "+fairness_gender") if issue else "fairness_gender"
 
@@ -259,12 +238,10 @@ def append_feedback_event(result: DetectionResult) -> None:
 
 
 def abort_canary_release() -> None:
-    # For the milestone, printing is enough; CI can also use exit code 1.
     print("[feedback_detection] ABORTING CANARY RELEASE (issue detected).")
 
 
 def trigger_retraining_pipeline() -> None:
-    # Hook this into your real pipeline if you want.
     print("[feedback_detection] TRIGGERING RETRAINING PIPELINE (placeholder).")
 
 

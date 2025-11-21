@@ -11,7 +11,7 @@ DATA_DIR = REPO_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw_data"
 
 
-# ---------- Data classes for clean summaries ----------
+# Data classes
 
 @dataclass
 class PopularityStats:
@@ -19,7 +19,7 @@ class PopularityStats:
     corr_popularity_interactions: float
     top_share_fraction: float
     top_share_percent: float
-    top_k_fraction: float = 0.1  # top 10%
+    top_k_fraction: float = 0.1  
 
 
 @dataclass
@@ -27,30 +27,22 @@ class GroupQualityStats:
     group: str
     n_interactions: int
     mean_rating: float
-    mae: float | None = None  # placeholder if you later add per-group MAE
+    mae: float | None = None  
 
 
-# ---------- Feedback loop: popularity amplification (OFFLINE) ----------
-
+# Feedback loop
 def analyze_popularity_feedback() -> PopularityStats:
-    """
-    Analyze how interactions concentrate on popular movies
-    using the offline training data.
-    """
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv")
-
     # interactions per movie in training data
     inter_per_movie = df.groupby("movie_id").size().rename("interaction_count")
 
     # average popularity score per movie
     pop_per_movie = df.groupby("movie_id")["popularity"].mean()
-
     stats = pd.concat([inter_per_movie, pop_per_movie], axis=1).dropna()
-
     n_movies = len(stats)
     corr = stats["interaction_count"].corr(stats["popularity"])
 
-    # how concentrated are interactions: top 10% movies by interaction_count
+    # how concentrated are interactions
     k = max(1, int(0.1 * n_movies))
     top = stats.sort_values("interaction_count", ascending=False).head(k)
     share = top["interaction_count"].sum() / stats["interaction_count"].sum()
@@ -64,17 +56,16 @@ def analyze_popularity_feedback() -> PopularityStats:
     )
 
 
-# ---------- Fairness: quality by user group (OFFLINE) ----------
+# Fairness
 
 def analyze_user_group_fairness(group_col: str = "gender") -> list[GroupQualityStats]:
-    """
-    Offline group-level stats (data volume and mean rating) for a given column,
-    e.g., gender or age_bin.
-    """
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv")
 
     if group_col not in df.columns:
         raise ValueError(f"{group_col} not in training_data_v2.csv columns")
+    
+    has_pred = "estimated_rating" in df.columns or "prediction" in df.columns
+    pred_col = "estimated_rating" if "estimated_rating" in df.columns else "prediction"
 
     rating_col = "rating" if "rating" in df.columns else None
 
@@ -82,19 +73,23 @@ def analyze_user_group_fairness(group_col: str = "gender") -> list[GroupQualityS
     for group_value, gdf in df.groupby(group_col):
         n = len(gdf)
         mean_rating = float(gdf[rating_col].mean()) if rating_col else float("nan")
+        if has_pred and rating_col:
+            mae = float((gdf[pred_col] - gdf[rating_col]).abs().mean())
+        else:
+            mae = None
         group_stats.append(
             GroupQualityStats(
                 group=str(group_value),
                 n_interactions=int(n),
                 mean_rating=mean_rating,
-                mae=None,  # you can fill this later with per-group MAE
+                mae=mae,  
             )
         )
 
     return group_stats
 
 
-# ---------- Genre diversity: distinct genres per user (OFFLINE) ----------
+# Genre diversity
 
 def analyze_genre_diversity():
     """
@@ -129,7 +124,7 @@ def analyze_genre_diversity():
     }
 
 
-# ---------- Offline “log-based” dataset overview ----------
+# Offline “log-based” dataset overview 
 
 def analyze_logs():
     """
@@ -143,7 +138,7 @@ def analyze_logs():
     n_users = df["user_id"].nunique()
     n_movies = df["movie_id"].nunique()
 
-    # rating stats if rating column exists
+    # rating stats 
     rating_stats = {}
     if "rating" in df.columns:
         rating_stats = {
@@ -169,9 +164,6 @@ def analyze_logs():
     offline_summary.update(rating_stats)
 
     return offline_summary
-
-
-# ---------- CLI entry point ----------
 
 def main(out_path: Path | None = None):
     pop_stats = analyze_popularity_feedback()
