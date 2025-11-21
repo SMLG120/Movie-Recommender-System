@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import MagicMock
-from cf_trainer import CFTrainer
+from src.cf_trainer import CFTrainer
 
 import warnings
 warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
