@@ -16,7 +16,7 @@ variables:
   # Python Configuration
   PYTHON_VERSION: "3.10"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
-  PYTHONPATH: "$CI_PROJECT_DIR/src:$CI_PROJECT_DIR"
+  
   # Docker Configuration
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
@@ -34,8 +34,6 @@ cache:
   key: "${CI_COMMIT_REF_SLUG}"
   paths:
     - .pip-cache/
-   
-
 
 # PIPELINE STAGES
 
@@ -59,7 +57,7 @@ test:unit:
     - pip install -r requirements.txt
     - pip install pytest pytest-cov pytest-xdist
   script:
-    - pytest -vv tests/unittests --maxfail=1 --disable-warnings
+    - pytest -q -n auto tests/unittests --maxfail=1 --disable-warnings
              --cov=src --cov-report=term-missing --cov-report=xml
              --junitxml=pytest-unit.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
