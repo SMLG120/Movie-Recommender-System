@@ -1,0 +1,49 @@
+{
+  "popularity_stats": {
+    "n_movies": 21941,
+    "corr_popularity_interactions": 0.2441683074559409,
+    "top_share_fraction": 0.5009800753904147,
+    "top_share_percent": 50.09800753904147,
+    "top_k_fraction": 0.1
+  },
+  "fairness_by_gender": [
+    {
+      "group": "F",
+      "n_interactions": 15631,
+      "mean_rating": 3.714797517753183,
+      "mae": null
+    },
+    {
+      "group": "M",
+      "n_interactions": 77217,
+      "mean_rating": 3.7194400196847845,
+      "mae": null
+    },
+    {
+      "group": "unknown",
+      "n_interactions": 2,
+      "mean_rating": 3.5,
+      "mae": null
+    }
+  ],
+  "genre_diversity": {
+    "n_users": 42991,
+    "mean_genres": 3.1918308483170894,
+    "median_genres": 3.0,
+    "p10_genres": 0.0,
+    "p90_genres": 7.0
+  },
+  "offline_log_stats": {
+    "n_rows": 92850,
+    "n_users": 42991,
+    "n_movies": 21941,
+    "mean_interactions_per_user": 2.1597543671931336,
+    "median_interactions_per_user": 1.0,
+    "mean_interactions_per_movie": 4.231803472950185,
+    "median_interactions_per_movie": 2.0,
+    "mean_rating": 3.7186537425955843,
+    "std_rating": 0.744015399843659,
+    "min_rating": 1.0,
+    "max_rating": 5.0
+  }
+}
