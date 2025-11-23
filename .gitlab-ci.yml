@@ -125,7 +125,7 @@ train_model:
     - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
     - echo " Starting model training pipeline..."
-    - python src/trainer.py
+    - pdm run python src/trainer.py
     - echo " Model training complete"
   artifacts:
     when: on_success
@@ -147,11 +147,11 @@ evaluate_model:
     - python -V
     - pip install --no-cache-dir pdm
     - pdm config python.use_venv false
-    - pdm install --prod --no-editable
+    - pdm install --dev --no-editable
     - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
     - echo " Running offline model evaluation..."
-    - python evaluation/Offline/offline_eval.py
+    - pdm run python evaluation/Offline/offline_eval.py
     - echo " Model evaluation complete"
   artifacts:
     when: always
