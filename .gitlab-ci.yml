@@ -14,8 +14,10 @@ workflow:
 
 variables:
   # Python Configuration
+  variables:
   PYTHON_VERSION: "3.10"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PYTHONPATH: "$CI_PROJECT_DIR"
   
   # Docker Configuration
   DOCKER_DRIVER: overlay2
