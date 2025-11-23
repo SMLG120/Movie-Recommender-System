@@ -29,4 +29,4 @@ COPY . .
 EXPOSE 8080
 
 # Start the service (adjust path if your app lives in src/)
-CMD ["python", "src/app.py"]
+CMD ["pdm", "run", "python", "src/app.py"]
