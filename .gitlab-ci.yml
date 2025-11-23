@@ -145,6 +145,7 @@ evaluate_model:
   needs: ["train_model"]  # Wait for training to complete
   before_script:
     - python -V
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
     - pip install --no-cache-dir pdm
     - pdm config python.use_venv false
     - pdm install --dev --no-editable
