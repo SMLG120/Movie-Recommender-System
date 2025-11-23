@@ -201,7 +201,7 @@ class Trainer:
             X, y, test_size=self.test_size, random_state=self.random_state
         )
         print(f"[INFO] Training data shape: {X_train.shape}, Test data shape: {X_test.shape}")
-        self.best_params = tuning_params if tuning_params else self.best_params
+        self.best_params = tuning_params if tuning_params else self.best_params__
         params = self.best_params or dict(
             n_estimators=100, learning_rate=0.1, max_depth=3, subsample=0.8, colsample_bytree=0.8
         )

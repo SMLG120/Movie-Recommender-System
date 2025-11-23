@@ -55,9 +55,12 @@ test:unit:
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install pytest pytest-cov pytest-xdist
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+    # - pip install pytest pytest-cov pytest-xdist
   script:
     - pytest -q -n auto tests/unittests --maxfail=1 --disable-warnings
              --cov=src --cov-report=term-missing --cov-report=xml
@@ -83,9 +86,12 @@ test:integration:
   needs: ["test:unit"]  # Wait for unit tests to pass first
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install pytest pytest-cov pytest-xdist
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+    # - pip install pytest pytest-cov pytest-xdist
   script:
     - pytest -q -n auto tests/integration --maxfail=1 --disable-warnings
              --cov=src --cov-append --cov-report=term-missing --cov-report=xml
@@ -112,8 +118,9 @@ train_model:
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
+    - pip install pdm
+    - pdm config python.use_venv false
+    - pdm install --prod --no-editable
   script:
     - echo " Starting model training pipeline..."
     - python src/trainer.py
