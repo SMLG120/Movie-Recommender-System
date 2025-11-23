@@ -167,32 +167,59 @@ evaluate_model:
 # STAGE 3: BUILD (Infrastructure Testing)
 
 # Docker Build - Build and push Docker image
-
 docker_build:
   stage: build
   image: docker:24
+
   services:
-    - docker:24-dind
+    - name: docker:24-dind
+      command: ["--tls=false"]
+
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+
   before_script:
     - echo "Logging in to GitLab Container Registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
   script:
     - echo "Building Docker image..."
-    - docker build 
-        -f docker/Dockerfile 
-        -t $IMAGE_TAG 
-        -t $IMAGE_LATEST 
-        --label "git.commit=$CI_COMMIT_SHA" 
-        --label "git.branch=$CI_COMMIT_REF_NAME" 
-        .
-    - echo "Pushing Docker image to registry..."
+    - docker build -f docker/Dockerfile -t $IMAGE_TAG -t $IMAGE_LATEST .
+    - echo "Pushing Docker image..."
     - docker push $IMAGE_TAG
     - docker push $IMAGE_LATEST
     - echo " Infrastructure test passed - Docker build successful"
-    - echo "Image - $IMAGE_TAG"
+    - echo "Image - $IMAGE_TAG" 
   artifacts:
     when: on_success
     expire_in: 1 week
+
+# docker_build:
+#   stage: build
+#   image: docker:24
+#   services:
+#     - docker:24-dind
+#   before_script:
+#     - echo "Logging in to GitLab Container Registry..."
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+#   script:
+#     - echo "Building Docker image..."
+#     - docker build 
+#         -f docker/Dockerfile 
+#         -t $IMAGE_TAG 
+#         -t $IMAGE_LATEST 
+#         --label "git.commit=$CI_COMMIT_SHA" 
+#         --label "git.branch=$CI_COMMIT_REF_NAME" 
+#         .
+#     - echo "Pushing Docker image to registry..."
+#     - docker push $IMAGE_TAG
+#     - docker push $IMAGE_LATEST
+#     - echo " Infrastructure test passed - Docker build successful"
+#     - echo "Image - $IMAGE_TAG"
+#   artifacts:
+#     when: on_success
+#     expire_in: 1 week
 
 # STAGE 4: DEPLOY
 
