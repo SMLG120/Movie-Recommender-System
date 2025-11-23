@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:1fbe7b8d7954cff1b74e7b98ad1856c730f0ffdbe8c98af6ed39cc2e86d9fe82"
+content_hash = "sha256:016f535f3db154529b472ac43561ec610c657c732c7d29b85cf115f196293f5c"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -121,7 +121,7 @@ version = "0.4.6"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 summary = "Cross-platform colored terminal text."
 groups = ["default", "dev"]
-marker = "sys_platform == \"win32\" or platform_system == \"Windows\""
+marker = "platform_system == \"Windows\" or sys_platform == \"win32\""
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
@@ -147,7 +147,7 @@ name = "coverage"
 version = "7.12.0"
 requires_python = ">=3.10"
 summary = "Code coverage measurement for Python"
-groups = ["default", "dev"]
+groups = ["dev"]
 files = [
     {file = "coverage-7.12.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:32b75c2ba3f324ee37af3ccee5b30458038c50b349ad9b88cee85096132a575b"},
     {file = "coverage-7.12.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:cb2a1b6ab9fe833714a483a915de350abc624a37149649297624c8d57add089c"},
@@ -171,7 +171,7 @@ version = "7.12.0"
 extras = ["toml"]
 requires_python = ">=3.10"
 summary = "Code coverage measurement for Python"
-groups = ["default", "dev"]
+groups = ["dev"]
 dependencies = [
     "coverage==7.12.0",
     "tomli; python_full_version <= \"3.11.0a6\"",
@@ -463,7 +463,7 @@ name = "iniconfig"
 version = "2.3.0"
 requires_python = ">=3.10"
 summary = "brain-dead simple config-ini parsing"
-groups = ["default", "dev"]
+groups = ["dev"]
 files = [
     {file = "iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"},
     {file = "iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730"},
@@ -745,7 +745,7 @@ name = "pluggy"
 version = "1.6.0"
 requires_python = ">=3.9"
 summary = "plugin and hook calling mechanisms for python"
-groups = ["default", "dev"]
+groups = ["dev"]
 files = [
     {file = "pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746"},
     {file = "pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3"},
@@ -824,7 +824,7 @@ name = "pytest"
 version = "9.0.1"
 requires_python = ">=3.10"
 summary = "pytest: simple powerful testing with Python"
-groups = ["default", "dev"]
+groups = ["dev"]
 dependencies = [
     "colorama>=0.4; sys_platform == \"win32\"",
     "exceptiongroup>=1; python_version < \"3.11\"",
@@ -844,7 +844,7 @@ name = "pytest-cov"
 version = "7.0.0"
 requires_python = ">=3.9"
 summary = "Pytest plugin for measuring coverage."
-groups = ["default", "dev"]
+groups = ["dev"]
 dependencies = [
     "coverage[toml]>=7.10.6",
     "pluggy>=1.2",
@@ -1180,7 +1180,7 @@ name = "tomli"
 version = "2.3.0"
 requires_python = ">=3.8"
 summary = "A lil' TOML parser"
-groups = ["default", "dev"]
+groups = ["dev"]
 marker = "python_version < \"3.11\""
 files = [
     {file = "tomli-2.3.0-py3-none-any.whl", hash = "sha256:e95b1af3c5b07d9e643909b5abbec77cd9f1217e6d0bca72b0234736b9fb1f1b"},

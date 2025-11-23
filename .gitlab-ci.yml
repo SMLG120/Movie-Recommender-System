@@ -62,7 +62,7 @@ test:unit:
     - export PYTHONPATH="$CI_PROJECT_DIR"
     # - pip install pytest pytest-cov pytest-xdist
   script:
-    - pytest -q -n auto tests/unittests --maxfail=1 --disable-warnings
+    - pdm run pytest -q -n auto tests/unittests --maxfail=1 --disable-warnings
              --cov=src --cov-report=term-missing --cov-report=xml
              --junitxml=pytest-unit.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
@@ -93,7 +93,7 @@ test:integration:
     - export PYTHONPATH="$CI_PROJECT_DIR"
     # - pip install pytest pytest-cov pytest-xdist
   script:
-    - pytest -q -n auto tests/integration --maxfail=1 --disable-warnings
+    - pdm run pytest -q -n auto tests/integration --maxfail=1 --disable-warnings
              --cov=src --cov-append --cov-report=term-missing --cov-report=xml
              --junitxml=pytest-integration.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'

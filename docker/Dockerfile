@@ -5,14 +5,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Minimal system deps; libgomp1 is needed at runtime for xgboost openmp
+# System deps for scikit-surprise, implicit, xgboost
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential libgomp1 \
+      build-essential \
+      libgomp1 \
+      gcc \
+      g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps first for caching
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install PDM globally
+RUN pip install --no-cache-dir pdm
+
+# Copy PDM metadata first for layer caching
+COPY pyproject.toml pdm.lock ./
+
+# Install dependencies (no venv → installs into system site-packages)
+RUN pdm config python.use_venv false && pdm install --prod --no-editable
 
 # Copy your app
 COPY . .
