@@ -173,6 +173,7 @@ docker_build:
 
   services:
     - name: docker:24-dind
+      alias: docker        # <--- REQUIRED on this GitLab runner
       command: ["--tls=false"]
 
   variables:
