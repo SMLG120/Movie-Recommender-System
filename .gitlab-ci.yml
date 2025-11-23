@@ -118,9 +118,11 @@ train_model:
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - python -V
-    - pip install pdm
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
     - pdm config python.use_venv false
     - pdm install --prod --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
     - echo " Starting model training pipeline..."
     - python src/trainer.py
@@ -143,8 +145,10 @@ evaluate_model:
   needs: ["train_model"]  # Wait for training to complete
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --prod --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
     - echo " Running offline model evaluation..."
     - python evaluation/Offline/offline_eval.py
