@@ -100,5 +100,33 @@
     "tuning_time_sec": 164.4,
     "cv_folds": 2,
     "param_grid_size": 10
+  },
+  {
+    "timestamp": "2025-11-23T15:24:45.817978",
+    "best_params": {
+      "model__colsample_bytree": 0.8,
+      "model__learning_rate": 0.1,
+      "model__max_depth": 4,
+      "model__n_estimators": 314,
+      "model__subsample": 0.8
+    },
+    "best_cv_rmse": 0.6107469201087952,
+    "tuning_time_sec": 125.31,
+    "cv_folds": 2,
+    "param_grid_size": 10
+  },
+  {
+    "timestamp": "2025-11-23T15:30:20.204149",
+    "best_params": {
+      "model__colsample_bytree": 0.8,
+      "model__learning_rate": 0.1,
+      "model__max_depth": 4,
+      "model__n_estimators": 314,
+      "model__subsample": 0.8
+    },
+    "best_cv_rmse": 0.6107469201087952,
+    "tuning_time_sec": 126.86,
+    "cv_folds": 2,
+    "param_grid_size": 10
   }
 ]

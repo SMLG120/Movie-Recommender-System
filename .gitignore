@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+team_6_recommender_system.egg-info/
 
 # Virtual environments
 venv/
