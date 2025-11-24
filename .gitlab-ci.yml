@@ -180,6 +180,10 @@ docker_build:
   variables:
     DOCKER_HOST: "unix:///var/run/docker.sock"
     DOCKER_TLS_CERTDIR: ""
+    REGISTRY: "gitlab.cs.mcgill.ca:5050"
+    IMAGE_NAME: "$REGISTRY/comp585_2025f/team-6"
+    IMAGE_TAG: "$IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+    IMAGE_LATEST: "$IMAGE_NAME:latest"
 
   before_script:
     - echo "Logging in to GitLab Container Registry..."
