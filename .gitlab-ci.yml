@@ -142,7 +142,7 @@ train_model:
 
 evaluate_model:
   stage: train
-  image: python:${PYTHON_VERSION}-slim
+  image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
   needs: ["train_model"]  # Wait for training to complete
   before_script:
     - python -V
