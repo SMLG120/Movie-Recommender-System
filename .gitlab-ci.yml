@@ -124,8 +124,9 @@ train_model:
     - pdm install --prod --no-editable
     - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
+    - set -o pipefail
     - echo " Starting model training pipeline..."
-    - pdm run python src/trainer.py
+    - pdm run python -u src/trainer.py
     - echo " Model training complete"
   artifacts:
     when: on_success
