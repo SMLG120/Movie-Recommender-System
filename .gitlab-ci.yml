@@ -14,8 +14,10 @@ workflow:
 
 variables:
   # Python Configuration
+  variables:
   PYTHON_VERSION: "3.10"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PYTHONPATH: "$CI_PROJECT_DIR"
   
   # Docker Configuration
   DOCKER_DRIVER: overlay2
@@ -53,11 +55,14 @@ test:unit:
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install pytest pytest-cov pytest-xdist
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+    # - pip install pytest pytest-cov pytest-xdist
   script:
-    - pytest -q -n auto tests/unittests --maxfail=1 --disable-warnings
+    - pdm run pytest -q tests/unittests --maxfail=1 --disable-warnings
              --cov=src --cov-report=term-missing --cov-report=xml
              --junitxml=pytest-unit.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
@@ -81,11 +86,14 @@ test:integration:
   needs: ["test:unit"]  # Wait for unit tests to pass first
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install pytest pytest-cov pytest-xdist
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+    # - pip install pytest pytest-cov pytest-xdist
   script:
-    - pytest -q -n auto tests/integration --maxfail=1 --disable-warnings
+    - pdm run pytest -q tests/integration --maxfail=1 --disable-warnings
              --cov=src --cov-append --cov-report=term-missing --cov-report=xml
              --junitxml=pytest-integration.xml
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
@@ -110,11 +118,15 @@ train_model:
   image: python:${PYTHON_VERSION}-slim
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --prod --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
+    - set -o pipefail
     - echo " Starting model training pipeline..."
-    - python src/trainer.py
+    - pdm run python -u src/trainer.py
     - echo " Model training complete"
   artifacts:
     when: on_success
@@ -130,15 +142,18 @@ train_model:
 
 evaluate_model:
   stage: train
-  image: python:${PYTHON_VERSION}-slim
+  image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
   needs: ["train_model"]  # Wait for training to complete
   before_script:
     - python -V
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
   script:
     - echo " Running offline model evaluation..."
-    - python evaluation/Offline/offline_eval.py
+    - pdm run python evaluation/Offline/offline_eval.py
     - echo " Model evaluation complete"
   artifacts:
     when: always
@@ -153,15 +168,24 @@ evaluate_model:
 # STAGE 3: BUILD (Infrastructure Testing)
 
 # Docker Build - Build and push Docker image
-
 docker_build:
   stage: build
   image: docker:24
+
   services:
-    - docker:24-dind
+    - name: docker:24-dind
+      alias: docker        # <--- REQUIRED on this GitLab runner
+      command: ["--tls=false"]
+
+  variables:
+    DOCKER_HOST: "unix:///var/run/docker.sock"
+    DOCKER_TLS_CERTDIR: ""
+    REGISTRY: "gitlab.cs.mcgill.ca:5050"
+
   before_script:
     - echo "Logging in to GitLab Container Registry..."
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
   script:
     - echo "Building Docker image..."
     - docker build 
@@ -170,15 +194,15 @@ docker_build:
         -t $IMAGE_LATEST 
         --label "git.commit=$CI_COMMIT_SHA" 
         --label "git.branch=$CI_COMMIT_REF_NAME" 
-        .
-    - echo "Pushing Docker image to registry..."
+    - echo "Pushing Docker image..."
     - docker push $IMAGE_TAG
     - docker push $IMAGE_LATEST
     - echo " Infrastructure test passed - Docker build successful"
-    - echo "Image - $IMAGE_TAG"
+    - echo "Image - $IMAGE_TAG" 
   artifacts:
     when: on_success
     expire_in: 1 week
+    
 
 # STAGE 4: DEPLOY
 
