@@ -117,6 +117,8 @@ test:integration:
 train_model:
   stage: train
   image: python:${PYTHON_VERSION}-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'   # runs after merge to main
   before_script:
     - python -V
     - apt-get update && apt-get install -y --no-install-recommends build-essential
@@ -145,6 +147,8 @@ evaluate_model:
   stage: train
   image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
   needs: ["train_model"]  # Wait for training to complete
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'  # runs after merge to main
   before_script:
     - python -V
     - apt-get update && apt-get install -y --no-install-recommends build-essential
