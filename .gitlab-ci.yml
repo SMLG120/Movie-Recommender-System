@@ -40,195 +40,196 @@ cache:
 # PIPELINE STAGES
 
 stages:
-  # - test          # Run all tests (unit + integration)
-  # - train         # Train and evaluate models
-  - build         # Build Docker image (infrastructure testing)
-  - deploy        # Deploy to server (manual, only on main)
+  - test          # Run all tests (unit + integration)
+  - train         # Train and evaluate models
+  # gitlab with the current configurations does not allow for building with docker
+  # - build         # Build Docker image (infrastructure testing)
+  # - deploy        # Deploy to server (manual, only on main)
 
 
 # STAGE 1: TEST
 
 # Unit Tests - Test individual components in isolation (parallel execution using pytest)
 
-# test:unit:
-#   stage: test
-#   image: python:${PYTHON_VERSION}-slim
-#   before_script:
-#     - python -V
-#     - apt-get update && apt-get install -y --no-install-recommends build-essential
-#     - pip install --no-cache-dir pdm
-#     - pdm config python.use_venv false
-#     - pdm install --dev --no-editable
-#     - export PYTHONPATH="$CI_PROJECT_DIR"
-#     # - pip install pytest pytest-cov pytest-xdist
-#   script:
-#     - pdm run pytest -q tests/unittests --maxfail=1 --disable-warnings
-#              --cov=src --cov-report=term-missing --cov-report=xml
-#              --junitxml=pytest-unit.xml
-#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-#   artifacts:
-#     when: always
-#     reports:
-#       junit: pytest-unit.xml
-#       coverage_report:
-#         coverage_format: cobertura
-#         path: coverage.xml
-#     paths:
-#       - coverage.xml
-#     expire_in: 1 week
-
-
-# # Integration Tests - Test component interactions (only on main after merge)
-
-# test:integration:
-#   stage: test
-#   image: python:${PYTHON_VERSION}-slim
-#   needs: ["test:unit"]  # Wait for unit tests to pass first
-#   before_script:
-#     - python -V
-#     - apt-get update && apt-get install -y --no-install-recommends build-essential
-#     - pip install --no-cache-dir pdm
-#     - pdm config python.use_venv false
-#     - pdm install --dev --no-editable
-#     - export PYTHONPATH="$CI_PROJECT_DIR"
-#     # - pip install pytest pytest-cov pytest-xdist
-#   script:
-#     - pdm run pytest -q tests/integration --maxfail=1 --disable-warnings
-#              --cov=src --cov-append --cov-report=term-missing --cov-report=xml
-#              --junitxml=pytest-integration.xml
-#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-#   artifacts:
-#     when: always
-#     reports:
-#       junit: pytest-integration.xml
-#       coverage_report:
-#         coverage_format: cobertura
-#         path: coverage.xml
-#     paths:
-#       - coverage.xml
-#     expire_in: 1 week
-
-
-# # STAGE 2: TRAIN & EVALUATE
-
-# # Train Model - Automatically retrain model on every merge to main
-
-# train_model:
-#   stage: train
-#   image: python:${PYTHON_VERSION}-slim
-#   before_script:
-#     - python -V
-#     - apt-get update && apt-get install -y --no-install-recommends build-essential
-#     - pip install --no-cache-dir pdm
-#     - pdm config python.use_venv false
-#     - pdm install --prod --no-editable
-#     - export PYTHONPATH="$CI_PROJECT_DIR"
-#   script:
-#     - set -o pipefail
-#     - echo " Starting model training pipeline..."
-#     - pdm run python -u src/trainer.py
-#     - echo " Model training complete"
-#   artifacts:
-#     when: on_success
-#     paths:
-#       - src/models/preprocessor.joblib
-#       - src/models/xgb_model.joblib
-#       - src/train_results/
-#     expire_in: 30 days
-#   timeout: 2h  # Allow up to 2 hours for training
-
-
-# # Evaluate Model - Automatically evaluate model after training
-
-# evaluate_model:
-#   stage: train
-#   image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
-#   needs: ["train_model"]  # Wait for training to complete
-#   before_script:
-#     - python -V
-#     - apt-get update && apt-get install -y --no-install-recommends build-essential
-#     - pip install --no-cache-dir pdm
-#     - pdm config python.use_venv false
-#     - pdm install --dev --no-editable
-#     - export PYTHONPATH="$CI_PROJECT_DIR"
-#   script:
-#     - echo " Running offline model evaluation..."
-#     - pdm run python evaluation/Offline/offline_eval.py
-#     - echo " Model evaluation complete"
-#   artifacts:
-#     when: always
-#     paths:
-#       - evaluation_results.json
-#       - evaluation/Offline/*.json
-#     reports:
-#       metrics: evaluation_results.json
-#     expire_in: 30 days
-
-
-# STAGE 3: BUILD (Infrastructure Testing)
-
-# Docker Build - Build and push Docker image locally
-docker_build:
-  stage: build
-  image: docker:24
-
-  services:
-    - name: docker:24-dind
-      alias: docker
-      command: ["--tls=false"]
-
-  variables:
-    DOCKER_HOST: "tcp://docker:2375"
-    DOCKER_TLS_CERTDIR: ""
-
+test:unit:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - python -V
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+    # - pip install pytest pytest-cov pytest-xdist
   script:
-    - docker build -f docker/Dockerfile -t movie-recommender:ci .
-    - docker save movie-recommender:ci -o image.tar
-    - echo "Image successfully built and saved."
+    - pdm run pytest -q tests/unittests --maxfail=1 --disable-warnings
+             --cov=src --cov-report=term-missing --cov-report=xml
+             --junitxml=pytest-unit.xml
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
+    when: always
+    reports:
+      junit: pytest-unit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
     paths:
-      - image.tar
+      - coverage.xml
     expire_in: 1 week
+
+
+# Integration Tests - Test component interactions (only on main after merge)
+
+test:integration:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+  needs: ["test:unit"]  # Wait for unit tests to pass first
+  before_script:
+    - python -V
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+    # - pip install pytest pytest-cov pytest-xdist
+  script:
+    - pdm run pytest -q tests/integration --maxfail=1 --disable-warnings
+             --cov=src --cov-append --cov-report=term-missing --cov-report=xml
+             --junitxml=pytest-integration.xml
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    reports:
+      junit: pytest-integration.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+    expire_in: 1 week
+
+
+# STAGE 2: TRAIN & EVALUATE
+
+# Train Model - Automatically retrain model on every merge to main
+
+train_model:
+  stage: train
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - python -V
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --prod --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+  script:
+    - set -o pipefail
+    - echo " Starting model training pipeline..."
+    - pdm run python -u src/trainer.py
+    - echo " Model training complete"
+  artifacts:
+    when: on_success
+    paths:
+      - src/models/preprocessor.joblib
+      - src/models/xgb_model.joblib
+      - src/train_results/
+    expire_in: 30 days
+  timeout: 2h  # Allow up to 2 hours for training
+
+
+# Evaluate Model - Automatically evaluate model after training
+
+evaluate_model:
+  stage: train
+  image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
+  needs: ["train_model"]  # Wait for training to complete
+  before_script:
+    - python -V
+    - apt-get update && apt-get install -y --no-install-recommends build-essential
+    - pip install --no-cache-dir pdm
+    - pdm config python.use_venv false
+    - pdm install --dev --no-editable
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+  script:
+    - echo " Running offline model evaluation..."
+    - pdm run python evaluation/Offline/offline_eval.py
+    - echo " Model evaluation complete"
+  artifacts:
+    when: always
+    paths:
+      - evaluation_results.json
+      - evaluation/Offline/*.json
+    reports:
+      metrics: evaluation_results.json
+    expire_in: 30 days
+
+
+# # STAGE 3: BUILD (Infrastructure Testing)
+
+# # Docker Build - Build and push Docker image locally
+# docker_build:
+#   stage: build
+#   image: docker:24
+
+#   services:
+#     - name: docker:24-dind
+#       alias: docker
+#       command: ["--tls=false"]
+
+#   variables:
+#     DOCKER_HOST: "tcp://docker:2375"
+#     DOCKER_TLS_CERTDIR: ""
+
+#   script:
+#     - docker build -f docker/Dockerfile -t movie-recommender:ci .
+#     - docker save movie-recommender:ci -o image.tar
+#     - echo "Image successfully built and saved."
+#   artifacts:
+#     paths:
+#       - image.tar
+#     expire_in: 1 week
 
     
 
-# STAGE 4: DEPLOY
+# # STAGE 4: DEPLOY
 
-# Deploy to Server - Deploy Docker container to team server
+# # Deploy to Server - Deploy Docker container to team server
 
-deploy_production:
-  stage: deploy
-  image: alpine:latest
-  when: manual
-  needs: ["docker_build"]
+# deploy_production:
+#   stage: deploy
+#   image: alpine:latest
+#   when: manual
+#   needs: ["docker_build"]
 
-  before_script:
-    - apk add --no-cache openssh-client docker-cli
-    - eval $(ssh-agent -s)
-    - echo "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+#   before_script:
+#     - apk add --no-cache openssh-client docker-cli
+#     - eval $(ssh-agent -s)
+#     - echo "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
+#     - mkdir -p ~/.ssh
+#     - chmod 700 ~/.ssh
+#     - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
 
-  script:
-    - echo "Copying image to server..."
-    - scp image.tar $DEPLOY_USER@$DEPLOY_HOST:/home/$DEPLOY_USER/image.tar
+#   script:
+#     - echo "Copying image to server..."
+#     - scp image.tar $DEPLOY_USER@$DEPLOY_HOST:/home/$DEPLOY_USER/image.tar
 
-    - echo "Deploying on server..."
-    - |
-      ssh $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
-        docker rm -f movie-recommender || true
-        docker load -i image.tar
-        docker run -d \
-          --name movie-recommender \
-          -p 8080:8080 \
-          --restart unless-stopped \
-          movie-recommender:ci
-        sleep 5
-        curl -f http://localhost:8080/health || exit 1
-        echo "Deployment successful."
-      EOF
+#     - echo "Deploying on server..."
+#     - |
+#       ssh $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
+#         docker rm -f movie-recommender || true
+#         docker load -i image.tar
+#         docker run -d \
+#           --name movie-recommender \
+#           -p 8080:8080 \
+#           --restart unless-stopped \
+#           movie-recommender:ci
+#         sleep 5
+#         curl -f http://localhost:8080/health || exit 1
+#         echo "Deployment successful."
+#       EOF
 
-  environment:
-    name: production
-    url: http://fall2025-comp585-6.cs.mcgill.ca:8080
+#   environment:
+#     name: production
+#     url: http://fall2025-comp585-6.cs.mcgill.ca:8080
