@@ -178,7 +178,7 @@ docker_build:
       command: ["--tls=false"]
 
   variables:
-    DOCKER_HOST: "unix:///var/run/docker.sock"
+    DOCKER_HOST: "tcp://docker:2375"
     DOCKER_TLS_CERTDIR: ""
     REGISTRY: "gitlab.cs.mcgill.ca:5050"
 
