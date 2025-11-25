@@ -167,46 +167,41 @@ stages:
 
 # STAGE 3: BUILD (Infrastructure Testing)
 
-# Docker Build - Build and push Docker image
+# Docker Build - Build and push Docker image locally
 docker_build:
   stage: build
   image: docker:24
 
   services:
     - name: docker:24-dind
-      alias: docker        # <--- REQUIRED on this GitLab runner
+      alias: docker
       command: ["--tls=false"]
 
   variables:
     DOCKER_HOST: "tcp://docker:2375"
     DOCKER_TLS_CERTDIR: ""
-    REGISTRY: "gitlab.cs.mcgill.ca:5050"
-
-  # before_script:
-  #   - echo "Logging in to GitLab Container Registry..."
-  #   - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
 
   script:
-    - echo "Building Docker image..."
-    - docker build -f docker/Dockerfile -t $IMAGE_TAG -t $IMAGE_LATEST --label "git.commit=$CI_COMMIT_SHA" --label "git.branch=$CI_COMMIT_REF_NAME" .
-    - echo "Pushing Docker image..."
-    - docker push $IMAGE_TAG
-    - docker push $IMAGE_LATEST
-    - echo " Infrastructure test passed - Docker build successful"
-    - echo "Image - $IMAGE_TAG" 
+    - docker build -f docker/Dockerfile -t movie-recommender:ci .
+    - docker save movie-recommender:ci -o image.tar
+    - echo "Image successfully built and saved."
   artifacts:
-    when: on_success
+    paths:
+      - image.tar
     expire_in: 1 week
+
     
 
 # STAGE 4: DEPLOY
 
-# Deploy to Server - Deploy Docker container to production server
+# Deploy to Server - Deploy Docker container to team server
 
 deploy_production:
   stage: deploy
   image: alpine:latest
-  when: manual  # Require manual approval to deploy
+  when: manual
+  needs: ["docker_build"]
+
   before_script:
     - apk add --no-cache openssh-client docker-cli
     - eval $(ssh-agent -s)
@@ -214,39 +209,26 @@ deploy_production:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+
   script:
-    - echo "Deploying to $DEPLOY_HOST..."
+    - echo "Copying image to server..."
+    - scp image.tar $DEPLOY_USER@$DEPLOY_HOST:/home/$DEPLOY_USER/image.tar
+
+    - echo "Deploying on server..."
     - |
       ssh $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
-        # Login to GitLab registry on remote server
-        echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-        
-        # Pull latest image
-        docker pull $IMAGE_TAG
-        
-        # Stop and remove old container
-        docker stop movie-recommender || true
-        docker rm movie-recommender || true
-        
-        # Run new container
+        docker rm -f movie-recommender || true
+        docker load -i image.tar
         docker run -d \
           --name movie-recommender \
           -p 8080:8080 \
           --restart unless-stopped \
-          $IMAGE_TAG
-        
-        # Wait for container to start
+          movie-recommender:ci
         sleep 5
-        
-        # Health check
-        if curl -f http://localhost:8080/health; then
-          echo " Deployment successful - Health check passed"
-        else
-          echo " Deployment failed - Health check failed"
-          exit 1
-        fi
+        curl -f http://localhost:8080/health || exit 1
+        echo "Deployment successful."
       EOF
+
   environment:
     name: production
     url: http://fall2025-comp585-6.cs.mcgill.ca:8080
-
