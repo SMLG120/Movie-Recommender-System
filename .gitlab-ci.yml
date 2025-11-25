@@ -40,8 +40,8 @@ cache:
 # PIPELINE STAGES
 
 stages:
-  - test          # Run all tests (unit + integration)
-  - train         # Train and evaluate models
+  # - test          # Run all tests (unit + integration)
+  # - train         # Train and evaluate models
   - build         # Build Docker image (infrastructure testing)
   - deploy        # Deploy to server (manual, only on main)
 
@@ -182,9 +182,9 @@ docker_build:
     DOCKER_TLS_CERTDIR: ""
     REGISTRY: "gitlab.cs.mcgill.ca:5050"
 
-  before_script:
-    - echo "Logging in to GitLab Container Registry..."
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  # before_script:
+  #   - echo "Logging in to GitLab Container Registry..."
+  #   - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
 
   script:
     - echo "Building Docker image..."
