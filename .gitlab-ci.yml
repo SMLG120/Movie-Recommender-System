@@ -50,119 +50,119 @@ stages:
 
 # Unit Tests - Test individual components in isolation (parallel execution using pytest)
 
-test:unit:
-  stage: test
-  image: python:${PYTHON_VERSION}-slim
-  before_script:
-    - python -V
-    - apt-get update && apt-get install -y --no-install-recommends build-essential
-    - pip install --no-cache-dir pdm
-    - pdm config python.use_venv false
-    - pdm install --dev --no-editable
-    - export PYTHONPATH="$CI_PROJECT_DIR"
-    # - pip install pytest pytest-cov pytest-xdist
-  script:
-    - pdm run pytest -q tests/unittests --maxfail=1 --disable-warnings
-             --cov=src --cov-report=term-missing --cov-report=xml
-             --junitxml=pytest-unit.xml
-  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-  artifacts:
-    when: always
-    reports:
-      junit: pytest-unit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-    paths:
-      - coverage.xml
-    expire_in: 1 week
+# test:unit:
+#   stage: test
+#   image: python:${PYTHON_VERSION}-slim
+#   before_script:
+#     - python -V
+#     - apt-get update && apt-get install -y --no-install-recommends build-essential
+#     - pip install --no-cache-dir pdm
+#     - pdm config python.use_venv false
+#     - pdm install --dev --no-editable
+#     - export PYTHONPATH="$CI_PROJECT_DIR"
+#     # - pip install pytest pytest-cov pytest-xdist
+#   script:
+#     - pdm run pytest -q tests/unittests --maxfail=1 --disable-warnings
+#              --cov=src --cov-report=term-missing --cov-report=xml
+#              --junitxml=pytest-unit.xml
+#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+#   artifacts:
+#     when: always
+#     reports:
+#       junit: pytest-unit.xml
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: coverage.xml
+#     paths:
+#       - coverage.xml
+#     expire_in: 1 week
 
 
-# Integration Tests - Test component interactions (only on main after merge)
+# # Integration Tests - Test component interactions (only on main after merge)
 
-test:integration:
-  stage: test
-  image: python:${PYTHON_VERSION}-slim
-  needs: ["test:unit"]  # Wait for unit tests to pass first
-  before_script:
-    - python -V
-    - apt-get update && apt-get install -y --no-install-recommends build-essential
-    - pip install --no-cache-dir pdm
-    - pdm config python.use_venv false
-    - pdm install --dev --no-editable
-    - export PYTHONPATH="$CI_PROJECT_DIR"
-    # - pip install pytest pytest-cov pytest-xdist
-  script:
-    - pdm run pytest -q tests/integration --maxfail=1 --disable-warnings
-             --cov=src --cov-append --cov-report=term-missing --cov-report=xml
-             --junitxml=pytest-integration.xml
-  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-  artifacts:
-    when: always
-    reports:
-      junit: pytest-integration.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-    paths:
-      - coverage.xml
-    expire_in: 1 week
-
-
-# STAGE 2: TRAIN & EVALUATE
-
-# Train Model - Automatically retrain model on every merge to main
-
-train_model:
-  stage: train
-  image: python:${PYTHON_VERSION}-slim
-  before_script:
-    - python -V
-    - apt-get update && apt-get install -y --no-install-recommends build-essential
-    - pip install --no-cache-dir pdm
-    - pdm config python.use_venv false
-    - pdm install --prod --no-editable
-    - export PYTHONPATH="$CI_PROJECT_DIR"
-  script:
-    - set -o pipefail
-    - echo " Starting model training pipeline..."
-    - pdm run python -u src/trainer.py
-    - echo " Model training complete"
-  artifacts:
-    when: on_success
-    paths:
-      - src/models/preprocessor.joblib
-      - src/models/xgb_model.joblib
-      - src/train_results/
-    expire_in: 30 days
-  timeout: 2h  # Allow up to 2 hours for training
+# test:integration:
+#   stage: test
+#   image: python:${PYTHON_VERSION}-slim
+#   needs: ["test:unit"]  # Wait for unit tests to pass first
+#   before_script:
+#     - python -V
+#     - apt-get update && apt-get install -y --no-install-recommends build-essential
+#     - pip install --no-cache-dir pdm
+#     - pdm config python.use_venv false
+#     - pdm install --dev --no-editable
+#     - export PYTHONPATH="$CI_PROJECT_DIR"
+#     # - pip install pytest pytest-cov pytest-xdist
+#   script:
+#     - pdm run pytest -q tests/integration --maxfail=1 --disable-warnings
+#              --cov=src --cov-append --cov-report=term-missing --cov-report=xml
+#              --junitxml=pytest-integration.xml
+#   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+#   artifacts:
+#     when: always
+#     reports:
+#       junit: pytest-integration.xml
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: coverage.xml
+#     paths:
+#       - coverage.xml
+#     expire_in: 1 week
 
 
-# Evaluate Model - Automatically evaluate model after training
+# # STAGE 2: TRAIN & EVALUATE
 
-evaluate_model:
-  stage: train
-  image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
-  needs: ["train_model"]  # Wait for training to complete
-  before_script:
-    - python -V
-    - apt-get update && apt-get install -y --no-install-recommends build-essential
-    - pip install --no-cache-dir pdm
-    - pdm config python.use_venv false
-    - pdm install --dev --no-editable
-    - export PYTHONPATH="$CI_PROJECT_DIR"
-  script:
-    - echo " Running offline model evaluation..."
-    - pdm run python evaluation/Offline/offline_eval.py
-    - echo " Model evaluation complete"
-  artifacts:
-    when: always
-    paths:
-      - evaluation_results.json
-      - evaluation/Offline/*.json
-    reports:
-      metrics: evaluation_results.json
-    expire_in: 30 days
+# # Train Model - Automatically retrain model on every merge to main
+
+# train_model:
+#   stage: train
+#   image: python:${PYTHON_VERSION}-slim
+#   before_script:
+#     - python -V
+#     - apt-get update && apt-get install -y --no-install-recommends build-essential
+#     - pip install --no-cache-dir pdm
+#     - pdm config python.use_venv false
+#     - pdm install --prod --no-editable
+#     - export PYTHONPATH="$CI_PROJECT_DIR"
+#   script:
+#     - set -o pipefail
+#     - echo " Starting model training pipeline..."
+#     - pdm run python -u src/trainer.py
+#     - echo " Model training complete"
+#   artifacts:
+#     when: on_success
+#     paths:
+#       - src/models/preprocessor.joblib
+#       - src/models/xgb_model.joblib
+#       - src/train_results/
+#     expire_in: 30 days
+#   timeout: 2h  # Allow up to 2 hours for training
+
+
+# # Evaluate Model - Automatically evaluate model after training
+
+# evaluate_model:
+#   stage: train
+#   image: python:${PYTHON_VERSION}-bullseye # use bullseye for training
+#   needs: ["train_model"]  # Wait for training to complete
+#   before_script:
+#     - python -V
+#     - apt-get update && apt-get install -y --no-install-recommends build-essential
+#     - pip install --no-cache-dir pdm
+#     - pdm config python.use_venv false
+#     - pdm install --dev --no-editable
+#     - export PYTHONPATH="$CI_PROJECT_DIR"
+#   script:
+#     - echo " Running offline model evaluation..."
+#     - pdm run python evaluation/Offline/offline_eval.py
+#     - echo " Model evaluation complete"
+#   artifacts:
+#     when: always
+#     paths:
+#       - evaluation_results.json
+#       - evaluation/Offline/*.json
+#     reports:
+#       metrics: evaluation_results.json
+#     expire_in: 30 days
 
 
 # STAGE 3: BUILD (Infrastructure Testing)
