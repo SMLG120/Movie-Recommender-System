@@ -188,12 +188,13 @@ docker_build:
 
   script:
     - echo "Building Docker image..."
-    - docker build 
-        -f docker/Dockerfile 
-        -t $IMAGE_TAG 
-        -t $IMAGE_LATEST 
-        --label "git.commit=$CI_COMMIT_SHA" 
-        --label "git.branch=$CI_COMMIT_REF_NAME" 
+    - docker build \
+      -f docker/Dockerfile \
+      -t $IMAGE_TAG \
+      -t $IMAGE_LATEST \
+      --label "git.commit=$CI_COMMIT_SHA" \
+      --label "git.branch=$CI_COMMIT_REF_NAME" \
+      .
     - echo "Pushing Docker image..."
     - docker push $IMAGE_TAG
     - docker push $IMAGE_LATEST
