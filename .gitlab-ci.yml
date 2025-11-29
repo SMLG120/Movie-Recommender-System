@@ -175,11 +175,11 @@ evaluate_model:
 # Docker Build - Build and push Docker image locally
 docker_build:
   stage: build
-  # image: docker:24
+  image: docker:24
 
-  # services:
-  #   - name: docker:24-dind
-  #     alias: docker
+  services:
+    - name: docker:24-dind
+      alias: docker
   #     command: ["--tls=false"]
 
   # variables:
