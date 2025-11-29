@@ -92,10 +92,7 @@ def analyze_user_group_fairness(group_col: str = "gender") -> list[GroupQualityS
 # Genre diversity
 
 def analyze_genre_diversity():
-    """
-    Approximate filter-bubble risk by looking at genre diversity per user
-    in the training data (snapshot, no timestamps).
-    """
+
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv", usecols=["user_id", "movie_id"])
     movies = pd.read_csv(RAW_DIR / "movies.csv", usecols=["id", "genres"])
 
@@ -105,7 +102,6 @@ def analyze_genre_diversity():
     )
 
     def distinct_genres(lists):
-        # flatten list-of-lists and take unique genres
         return len({g for sub in lists for g in sub})
 
     user_div = (
@@ -125,13 +121,7 @@ def analyze_genre_diversity():
 
 
 # Offline “log-based” dataset overview 
-
 def analyze_logs():
-    """
-    Offline summary based on training_data_v2.csv.
-    This intentionally ignores online metrics like CTR and satisfaction,
-    which are handled in separate monitoring scripts.
-    """
     df = pd.read_csv(DATA_DIR / "training_data_v2.csv")
 
     n_rows = len(df)

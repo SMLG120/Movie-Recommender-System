@@ -1,0 +1,18 @@
+[
+  {
+    "timestamp": "2025-11-29T02:52:57.317735Z",
+    "issue": "feedback_low_ctr+fairness_gender",
+    "details": {
+      "issue": "feedback_low_ctr+fairness_gender",
+      "ctr": 0.029850746268656716,
+      "ctr_threshold": 0.1,
+      "rating_male": 2.772727272727273,
+      "rating_female": 2.25,
+      "rating_ratio": 0.8114754098360655,
+      "rating_ratio_threshold": 0.85,
+      "n_rec_events": 30,
+      "n_interaction_events": 10,
+      "n_quality_events": 30
+    }
+  }
+]

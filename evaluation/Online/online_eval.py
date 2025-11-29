@@ -3,17 +3,17 @@ from datetime import datetime, timedelta
 import json
 import os
 import warnings
+from pathlib import Path
 from prometheus_client import Counter, Histogram, Gauge, start_http_server
 
 class OnlineEvaluator:
-    """
-    Simplified online evaluator for movie recommender system.
-    Tracks recommendations, interactions, response times, errors, and model quality.
-    """
 
-    def __init__(self, log_path='Testing/Online/logs/online_metrics.json', alert_threshold=0.1):
-        self.log_path = log_path
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    def __init__(self, log_path=None, alert_threshold=0.1):
+        if log_path is None:
+            repo_root = Path(__file__).resolve().parents[1]
+            log_path = repo_root / "evaluation" / "Online" / "logs" / "online_metrics.json"
+        self.log_path = str(log_path)
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
 
         # Metrics storage
         self.metrics = {
@@ -42,12 +42,8 @@ class OnlineEvaluator:
         except Exception as e:
             warnings.warn(f"Could not start Prometheus server: {e}")
 
-    # ---------------- Logging functions ----------------
 
     def log_recommendation(self, user_id, recommended_items, response_time):
-        """
-        Log a recommendation event.
-        """
         current_time = datetime.now()
 
         self.metrics['recommendations'].append({
@@ -65,9 +61,7 @@ class OnlineEvaluator:
         self._save_metrics()
 
     def log_interaction(self, user_id, item_id, action_type, watch_time=None):
-        """
-        Log a user interaction (click/watch).
-        """
+ 
         current_time = datetime.now()
         self.metrics['user_interactions'].append({
             'timestamp': current_time.isoformat(),
@@ -84,9 +78,6 @@ class OnlineEvaluator:
         self._save_metrics()
 
     def log_error(self, error_type, message):
-        """
-        Log an error event.
-        """
         current_time = datetime.now()
         self.metrics['errors'].append({
             'timestamp': current_time.isoformat(),
@@ -100,7 +91,6 @@ class OnlineEvaluator:
         self._save_metrics()
 
     def log_model_deployment(self, version, model_type):
-        """Log model deployment events"""
         event = {
             'timestamp': datetime.now().isoformat(),
             'version': version,
@@ -109,24 +99,19 @@ class OnlineEvaluator:
         self.metrics['model_versions'].append(event)
         self._save_metrics()
         
-    def log_recommendation_quality(self, user_id, recommended_items, selected_item, satisfaction_score):
-        """Log recommendation quality metrics"""
+    def log_recommendation_quality(self, user_id, recommended_items, selected_item, rating_score):
         event = {
             'timestamp': datetime.now().isoformat(),
             'user_id': user_id,
             'recommendations': recommended_items,
             'selected': selected_item,
-            'satisfaction': satisfaction_score
+            'rating': rating_score
         }
         self.metrics['recommendation_quality'].append(event)
         self._save_metrics()
 
-    # ---------------- Metrics computation ----------------
 
     def _compute_hit(self, user_id, item_id):
-        """
-        Compute if the latest recommendation for the user contained the interacted item.
-        """
         user_recs = [r for r in self.metrics['recommendations'] if r['user_id'] == user_id]
         if not user_recs:
             return 0.0
@@ -134,9 +119,6 @@ class OnlineEvaluator:
         return float(item_id in latest_items)
 
     def compute_online_metrics(self, last_hours=24):
-        """
-        Compute aggregate online metrics for the last `last_hours` hours.
-        """
         now = datetime.now()
         cutoff = now - timedelta(hours=last_hours)
 
@@ -167,25 +149,15 @@ class OnlineEvaluator:
 
         return metrics
 
-    # ---------------- Utilities ----------------
-
     def _save_metrics(self):
-        """
-        Save metrics to disk with error handling.
-        """
         try:
             with open(self.log_path, 'w') as f:
-                json.dump(self.metrics, f)
+                json.dump(self.metrics, f, indent=2)
         except Exception as e:
             warnings.warn(f"Failed to save metrics: {e}")
 
 
-# ---------------- Singleton accessor ----------------
-
 def get_evaluator():
-    """
-    Singleton pattern for getting the online evaluator.
-    """
     if not hasattr(get_evaluator, 'instance'):
         get_evaluator.instance = OnlineEvaluator()
     return get_evaluator.instance

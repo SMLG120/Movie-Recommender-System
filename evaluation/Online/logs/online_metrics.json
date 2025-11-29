@@ -1,1 +1,1202 @@
-{"recommendations": [{"timestamp": "2025-10-19T18:11:38.598517", "user_id": "u1", "items": ["m1", "m2", "m3"]}, {"timestamp": "2025-10-19T18:11:38.600580", "user_id": "u2", "items": ["m2", "m4"]}, {"timestamp": "2025-10-19T18:11:38.602068", "user_id": "u3", "items": ["m5", "m1"]}], "user_interactions": [{"timestamp": "2025-10-19T18:11:38.603375", "user_id": "u1", "item_id": "m2", "action_type": "click", "watch_time": null}, {"timestamp": "2025-10-19T18:11:38.604905", "user_id": "u1", "item_id": "m4", "action_type": "click", "watch_time": null}, {"timestamp": "2025-10-19T18:11:38.606296", "user_id": "u2", "item_id": "m2", "action_type": "watch", "watch_time": 20}, {"timestamp": "2025-10-19T18:11:38.607256", "user_id": "u3", "item_id": "m5", "action_type": "watch", "watch_time": 15}], "response_times": [0.4, 0.6, 0.3], "errors": [], "model_versions": [{"timestamp": "2025-10-19T18:11:38.608717", "version": "v1.0", "model_type": "collaborative_filtering"}], "recommendation_quality": [{"timestamp": "2025-10-19T18:11:38.610122", "user_id": "u1", "recommendations": ["m1", "m2", "m3"], "selected": "m2", "satisfaction": 0.8}, {"timestamp": "2025-10-19T18:11:38.611123", "user_id": "u2", "recommendations": ["m2", "m4"], "selected": "m2", "satisfaction": 1.0}]}
+{
+  "recommendations": [
+    {
+      "timestamp": "2025-11-28T21:02:47.331439",
+      "user_id": "19316",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:02:47.334437",
+      "user_id": "10661",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:02:47.453918",
+      "user_id": "1878",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:08:04.920742",
+      "user_id": "9905",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:08:04.958442",
+      "user_id": "417",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:08:04.977651",
+      "user_id": "24380",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.716345",
+      "user_id": "32781",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.752711",
+      "user_id": "6712",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.776124",
+      "user_id": "19104",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "diabolique+1955",
+        "what+ever+happened+to+baby+jane+1962",
+        "the+shining+1980",
+        "night+and+fog+1955"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:18:24.224466",
+      "user_id": "3912",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:18:24.294442",
+      "user_id": "33568",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "pulp+fiction+1994",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "day+of+wrath+1943",
+        "forrest+gump+1994",
+        "the+art+of+flight+2011",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "sansho+the+bailiff+1954",
+        "man+with+a+movie+camera+1929",
+        "paris+is+burning+1990",
+        "frozen+planet+2011",
+        "scenes+from+a+marriage+1973",
+        "the+passion+of+joan+of+arc+1928"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:18:24.316282",
+      "user_id": "6792",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:23:27.412569",
+      "user_id": "4409",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:23:27.653855",
+      "user_id": "38176",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:23:27.706594",
+      "user_id": "23450",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:28:40.978936",
+      "user_id": "19884",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:28:41.103590",
+      "user_id": "25936",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:28:41.162670",
+      "user_id": "32459",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:33:47.801387",
+      "user_id": "6961",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:33:47.908119",
+      "user_id": "41842",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:33:48.171124",
+      "user_id": "6064",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "pulp+fiction+1994",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "day+of+wrath+1943",
+        "forrest+gump+1994",
+        "the+art+of+flight+2011"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.323838",
+      "user_id": "544683",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "pulp+fiction+1994",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "forrest+gump+1994",
+        "the+art+of+flight+2011",
+        "day+of+wrath+1943",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "diabolique+1955",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "what+ever+happened+to+baby+jane+1962",
+        "the+shining+1980",
+        "sansho+the+bailiff+1954",
+        "paris+is+burning+1990",
+        "frozen+planet+2011"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.368400",
+      "user_id": "29078",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.449740",
+      "user_id": "1996",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+red+shoes+1948",
+        "the+passion+of+joan+of+arc+1928",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:44:04.819185",
+      "user_id": "8017",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:44:05.174634",
+      "user_id": "21219",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:44:05.203844",
+      "user_id": "34994",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.510527",
+      "user_id": "13658",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+red+shoes+1948",
+        "the+passion+of+joan+of+arc+1928",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.568123",
+      "user_id": "3480",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ]
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.691923",
+      "user_id": "19872",
+      "items": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ]
+    }
+  ],
+  "user_interactions": [
+    {
+      "timestamp": "2025-11-28T21:08:04.964830",
+      "user_id": "417",
+      "item_id": "the+shawshank+redemption+1994",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.757936",
+      "user_id": "6712",
+      "item_id": "the+shawshank+redemption+1994",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:28:40.990392",
+      "user_id": "19884",
+      "item_id": "the+art+of+flight+2011",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:28:41.167214",
+      "user_id": "32459",
+      "item_id": "pulp+fiction+1994",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:33:47.814859",
+      "user_id": "6961",
+      "item_id": "day+of+wrath+1943",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.330676",
+      "user_id": "544683",
+      "item_id": "paris+is+burning+1990",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.372624",
+      "user_id": "29078",
+      "item_id": "the+shawshank+redemption+1994",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.458607",
+      "user_id": "1996",
+      "item_id": "day+of+wrath+1943",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:44:04.827701",
+      "user_id": "8017",
+      "item_id": "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+      "action_type": "click",
+      "watch_time": null
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.575519",
+      "user_id": "3480",
+      "item_id": "the+shawshank+redemption+1994",
+      "action_type": "click",
+      "watch_time": null
+    }
+  ],
+  "response_times": [
+    597.428777,
+    597.427477,
+    597.553,
+    316.449722,
+    316.489639,
+    316.509741,
+    301.732252,
+    301.766073,
+    301.790864,
+    315.442598,
+    315.511808,
+    315.535203,
+    302.090664,
+    302.329191,
+    302.383475,
+    312.259778,
+    312.382936,
+    312.446411,
+    305.62144,
+    305.733743,
+    305.994199,
+    311.139021,
+    311.178123,
+    311.262022,
+    303.349655,
+    303.702946,
+    303.729512,
+    312.298172,
+    312.350168,
+    312.477133
+  ],
+  "errors": [],
+  "model_versions": [],
+  "recommendation_quality": [
+    {
+      "timestamp": "2025-11-28T21:02:47.341588",
+      "user_id": "10661",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ],
+      "selected": "night+and+fog+1955",
+      "rating": 4
+    },
+    {
+      "timestamp": "2025-11-28T21:02:47.343453",
+      "user_id": "19316",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ],
+      "selected": "fight+club+1999",
+      "rating": 3
+    },
+    {
+      "timestamp": "2025-11-28T21:02:47.464432",
+      "user_id": "1878",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ],
+      "selected": "shadows+of+forgotten+ancestors+1965",
+      "rating": 5
+    },
+    {
+      "timestamp": "2025-11-28T21:08:04.928090",
+      "user_id": "9905",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ],
+      "selected": "the+shawshank+redemption+1994",
+      "rating": 3
+    },
+    {
+      "timestamp": "2025-11-28T21:08:04.976533",
+      "user_id": "417",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997"
+      ],
+      "selected": "the+shawshank+redemption+1994",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:08:04.982431",
+      "user_id": "24380",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ],
+      "selected": "shadows+of+forgotten+ancestors+1965",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.727131",
+      "user_id": "32781",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ],
+      "selected": "one+flew+over+the+cuckoos+nest+1975",
+      "rating": 4
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.762008",
+      "user_id": "6712",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ],
+      "selected": "the+shawshank+redemption+1994",
+      "rating": 3
+    },
+    {
+      "timestamp": "2025-11-28T21:13:07.779368",
+      "user_id": "19104",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "diabolique+1955",
+        "what+ever+happened+to+baby+jane+1962",
+        "the+shining+1980",
+        "night+and+fog+1955"
+      ],
+      "selected": "what+ever+happened+to+baby+jane+1962",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:18:24.233962",
+      "user_id": "3912",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ],
+      "selected": "shadows+of+forgotten+ancestors+1965",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:18:24.302065",
+      "user_id": "33568",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "pulp+fiction+1994",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "day+of+wrath+1943",
+        "forrest+gump+1994",
+        "the+art+of+flight+2011",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "sansho+the+bailiff+1954",
+        "man+with+a+movie+camera+1929",
+        "paris+is+burning+1990",
+        "frozen+planet+2011",
+        "scenes+from+a+marriage+1973",
+        "the+passion+of+joan+of+arc+1928"
+      ],
+      "selected": "man+with+a+movie+camera+1929",
+      "rating": 3
+    },
+    {
+      "timestamp": "2025-11-28T21:18:24.319486",
+      "user_id": "6792",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ],
+      "selected": "day+of+wrath+1943",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:23:27.420692",
+      "user_id": "4409",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997"
+      ],
+      "selected": "night+and+fog+1955",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:23:27.661380",
+      "user_id": "38176",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+      "rating": 5
+    },
+    {
+      "timestamp": "2025-11-28T21:23:27.712767",
+      "user_id": "23450",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "once+upon+a+time+in+america+1984",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:28:40.996907",
+      "user_id": "19884",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "the+art+of+flight+2011",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:28:41.107873",
+      "user_id": "25936",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "late+spring+1949",
+      "rating": 4
+    },
+    {
+      "timestamp": "2025-11-28T21:28:41.171500",
+      "user_id": "32459",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ],
+      "selected": "pulp+fiction+1994",
+      "rating": 5
+    },
+    {
+      "timestamp": "2025-11-28T21:33:47.820080",
+      "user_id": "6961",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997"
+      ],
+      "selected": "day+of+wrath+1943",
+      "rating": 4
+    },
+    {
+      "timestamp": "2025-11-28T21:33:47.918378",
+      "user_id": "41842",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929"
+      ],
+      "selected": "night+and+fog+1955",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:33:48.180420",
+      "user_id": "6064",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "pulp+fiction+1994",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "day+of+wrath+1943",
+        "forrest+gump+1994",
+        "the+art+of+flight+2011"
+      ],
+      "selected": "the+art+of+flight+2011",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.339052",
+      "user_id": "544683",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "pulp+fiction+1994",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "forrest+gump+1994",
+        "the+art+of+flight+2011",
+        "day+of+wrath+1943",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "diabolique+1955",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "what+ever+happened+to+baby+jane+1962",
+        "the+shining+1980",
+        "sansho+the+bailiff+1954",
+        "paris+is+burning+1990",
+        "frozen+planet+2011"
+      ],
+      "selected": "paris+is+burning+1990",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.377616",
+      "user_id": "29078",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ],
+      "selected": "the+shawshank+redemption+1994",
+      "rating": 5
+    },
+    {
+      "timestamp": "2025-11-28T21:39:00.463755",
+      "user_id": "1996",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+red+shoes+1948",
+        "the+passion+of+joan+of+arc+1928",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "day+of+wrath+1943",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:44:04.832226",
+      "user_id": "8017",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ],
+      "selected": "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:44:05.182874",
+      "user_id": "21219",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943"
+      ],
+      "selected": "fight+club+1999",
+      "rating": 3
+    },
+    {
+      "timestamp": "2025-11-28T21:44:05.209133",
+      "user_id": "34994",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995"
+      ],
+      "selected": "one+flew+over+the+cuckoos+nest+1975",
+      "rating": 3
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.518116",
+      "user_id": "13658",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "the+shawshank+redemption+1994",
+        "fight+club+1999",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "dilwale+dulhania+le+jayenge+1995",
+        "life+is+beautiful+1997",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+red+shoes+1948",
+        "the+passion+of+joan+of+arc+1928",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "one+flew+over+the+cuckoos+nest+1975",
+      "rating": 2
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.581370",
+      "user_id": "3480",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943"
+      ],
+      "selected": "the+shawshank+redemption+1994",
+      "rating": 1
+    },
+    {
+      "timestamp": "2025-11-28T21:49:18.698374",
+      "user_id": "19872",
+      "recommendations": [
+        "shadows+of+forgotten+ancestors+1965",
+        "night+and+fog+1955",
+        "fight+club+1999",
+        "the+shawshank+redemption+1994",
+        "day+of+wrath+1943",
+        "pulp+fiction+1994",
+        "one+flew+over+the+cuckoos+nest+1975",
+        "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+        "forrest+gump+1994",
+        "life+is+beautiful+1997",
+        "dilwale+dulhania+le+jayenge+1995",
+        "once+upon+a+time+in+america+1984",
+        "schindlers+list+1993",
+        "the+art+of+flight+2011",
+        "man+with+a+movie+camera+1929",
+        "sansho+the+bailiff+1954",
+        "the+passion+of+joan+of+arc+1928",
+        "the+red+shoes+1948",
+        "paris+is+burning+1990",
+        "late+spring+1949"
+      ],
+      "selected": "dear+zachary+a+letter+to+a+son+about+his+father+2008",
+      "rating": 2
+    }
+  ]
+}
