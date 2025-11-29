@@ -1,35 +1,3 @@
-"""
-Feedback loop & fairness detector for online metrics.
-
-Schema of evaluation/Online/logs/online_metrics.json:
-
-{
-  "recommendations": [
-    {"timestamp": "...", "user_id": "u1", "items": ["m1", "m2", "m3"]},
-    ...
-  ],
-  "user_interactions": [
-    {"timestamp": "...", "user_id": "u1", "item_id": "m2",
-     "action_type": "click" | "watch", "watch_time": 20},
-    ...
-  ],
-  "recommendation_quality": [
-    {"timestamp": "...", "user_id": "u1",
-     "recommendations": ["m1","m2","m3"],
-     "selected": "m2", "satisfaction": 0.8},
-    ...
-  ],
-  ...
-}
-
-Usage (from repo root):
-    python monitoring/feedback_detection.py
-
-Exit code:
-    0 -> no issue detected
-    1 -> feedback loop or fairness issue detected
-"""
-
 from __future__ import annotations
 
 import json
@@ -41,27 +9,27 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-# Thresholds – tunable
+# Thresholds 
 CTR_THRESHOLD = 0.10           # if CTR < 10% -> feedback issue
-SAT_RATIO_THRESHOLD = 0.85     # if sat_F / sat_M < 0.85 -> fairness issue
+RATING_RATIO_THRESHOLD = 0.85  # if avg_rating_F / avg_rating_M < 0.85 -> fairness issue
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+# Path plumbing: repo root is two levels up from this file
+REPO_ROOT = Path(__file__).resolve().parents[2]
 ONLINE_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "online_metrics.json"
 FEEDBACK_EVENTS_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "feedback_events.json"
-TRAINING_DATA = REPO_ROOT / "data" / "training_data_v2.csv"   
+TRAINING_DATA = REPO_ROOT / "data" / "training_data_v2.csv"
 
 
 # Data classes
-
 @dataclass
 class DetectionResult:
     issue: Optional[str]
     ctr: float
     ctr_threshold: float
-    sat_male: Optional[float]
-    sat_female: Optional[float]
-    sat_ratio: Optional[float]
-    sat_ratio_threshold: float
+    rating_male: Optional[float]
+    rating_female: Optional[float]
+    rating_ratio: Optional[float]
+    rating_ratio_threshold: float
     n_rec_events: int
     n_interaction_events: int
     n_quality_events: int
@@ -133,31 +101,31 @@ def compute_ctr(
     return hits / total_recommended
 
 
-def compute_group_satisfaction(
+def compute_group_rating(
     quality_events: List[Dict[str, Any]],
     user_gender: Dict[str, str],
 ) -> Dict[str, float]:
-    sats_by_gender: Dict[str, List[float]] = {}
+    ratings_by_gender: Dict[str, List[float]] = {}
 
     for ev in quality_events:
         uid = str(ev.get("user_id"))
         g = user_gender.get(uid, "unknown")
-        sat_val = ev.get("satisfaction")
-        if sat_val is None:
+        rating_val = ev.get("rating")
+        if rating_val is None:
             continue
         try:
-            s = float(sat_val)
+            r = float(rating_val)
         except Exception:
             continue
 
-        sats_by_gender.setdefault(g, []).append(s)
+        ratings_by_gender.setdefault(g, []).append(r)
 
-    avg_sats: Dict[str, float] = {}
-    for g, vals in sats_by_gender.items():
+    avg_ratings: Dict[str, float] = {}
+    for g, vals in ratings_by_gender.items():
         if vals:
-            avg_sats[g] = sum(vals) / len(vals)
+            avg_ratings[g] = sum(vals) / len(vals)
 
-    return avg_sats
+    return avg_ratings
 
 
 # Detection of feedback loop and fairness issues
@@ -172,23 +140,23 @@ def detect_feedback_and_fairness() -> DetectionResult:
     print(f"[feedback_detection] Global CTR = {ctr:.4f} (threshold {CTR_THRESHOLD})")
 
     user_gender_map = load_user_gender_mapping()
-    avg_sats = compute_group_satisfaction(qual, user_gender_map)
+    avg_ratings = compute_group_rating(qual, user_gender_map)
 
-    sat_m = avg_sats.get("M")
-    sat_f = avg_sats.get("F")
+    rating_m = avg_ratings.get("M")
+    rating_f = avg_ratings.get("F")
 
-    sat_ratio = None
-    if sat_m is not None and sat_m > 0 and sat_f is not None:
-        sat_ratio = sat_f / sat_m
+    rating_ratio = None
+    if rating_m is not None and rating_m > 0 and rating_f is not None:
+        rating_ratio = rating_f / rating_m
 
-    if sat_m is not None:
-        print(f"[feedback_detection] avg satisfaction (M) = {sat_m:.4f}")
-    if sat_f is not None:
-        print(f"[feedback_detection] avg satisfaction (F) = {sat_f:.4f}")
-    if sat_ratio is not None:
+    if rating_m is not None:
+        print(f"[feedback_detection] avg rating (M) = {rating_m:.4f}")
+    if rating_f is not None:
+        print(f"[feedback_detection] avg rating (F) = {rating_f:.4f}")
+    if rating_ratio is not None:
         print(
-            f"[feedback_detection] satisfaction ratio F/M = "
-            f"{sat_ratio:.4f} (threshold {SAT_RATIO_THRESHOLD})"
+            f"[feedback_detection] rating ratio F/M = "
+            f"{rating_ratio:.4f} (threshold {RATING_RATIO_THRESHOLD})"
         )
 
     issue: Optional[str] = None
@@ -197,18 +165,18 @@ def detect_feedback_and_fairness() -> DetectionResult:
     if ctr < CTR_THRESHOLD:
         issue = "feedback_low_ctr"
 
-    # Feedback based on gender satisfaction
-    if sat_ratio is not None and sat_ratio < SAT_RATIO_THRESHOLD:
+    # Feedback based on gender rating fairness
+    if rating_ratio is not None and rating_ratio < RATING_RATIO_THRESHOLD:
         issue = (issue + "+fairness_gender") if issue else "fairness_gender"
 
     return DetectionResult(
         issue=issue,
         ctr=ctr,
         ctr_threshold=CTR_THRESHOLD,
-        sat_male=sat_m,
-        sat_female=sat_f,
-        sat_ratio=sat_ratio,
-        sat_ratio_threshold=SAT_RATIO_THRESHOLD,
+        rating_male=rating_m,
+        rating_female=rating_f,
+        rating_ratio=rating_ratio,
+        rating_ratio_threshold=RATING_RATIO_THRESHOLD,
         n_rec_events=len(recs),
         n_interaction_events=len(inter),
         n_quality_events=len(qual),
