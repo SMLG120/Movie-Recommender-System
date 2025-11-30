@@ -43,7 +43,7 @@ stages:
   - test          # Run all tests (unit + integration)
   - train         # Train and evaluate models
   # gitlab with the current configurations does not allow for building with docker
-  - build         # Build Docker image (infrastructure testing)
+  # - build         # Build Docker image (infrastructure testing)
   # - deploy        # Deploy to server (manual, only on main)
 
 
@@ -173,27 +173,27 @@ evaluate_model:
 # # STAGE 3: BUILD (Infrastructure Testing)
 
 # Docker Build - Build and push Docker image locally
-docker_build:
-  stage: build
-  image: docker:24
+# docker_build:
+#   stage: build
+#   image: docker:24
 
-  services:
-    - name: docker:24-dind
-      alias: docker
-  #     command: ["--tls=false"]
+#   services:
+#     - name: docker:24-dind
+#       alias: docker
+#   #     command: ["--tls=false"]
 
-  # variables:
-  #   DOCKER_HOST: "tcp://docker:2375"
-  #   DOCKER_TLS_CERTDIR: ""
+#   # variables:
+#   #   DOCKER_HOST: "tcp://docker:2375"
+#   #   DOCKER_TLS_CERTDIR: ""
 
-  script:
-    - docker build -f docker/Dockerfile -t movie-recommender:ci .
-    - docker save movie-recommender:ci -o image.tar
-    - echo "Image successfully built and saved."
-  artifacts:
-    paths:
-      - image.tar
-    expire_in: 1 week
+#   script:
+#     - docker build -f docker/Dockerfile -t movie-recommender:ci .
+#     - docker save movie-recommender:ci -o image.tar
+#     - echo "Image successfully built and saved."
+#   artifacts:
+#     paths:
+#       - image.tar
+#     expire_in: 1 week
 
     
 
