@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+import shutil
+import os
 
-# Thresholds 
+# Thresholds
 CTR_THRESHOLD = 0.10           # if CTR < 10% -> feedback issue
+CANARY_CTR_RATIO_THRESHOLD = 0.70  # v2 must be at least 70% as good as v1
 RATING_RATIO_THRESHOLD = 0.85  # if avg_rating_F / avg_rating_M < 0.85 -> fairness issue
 
 # Path plumbing: repo root is two levels up from this file
@@ -19,6 +22,11 @@ ONLINE_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "online_metrics.json
 FEEDBACK_EVENTS_LOG = REPO_ROOT / "evaluation" / "Online" / "logs" / "feedback_events.json"
 TRAINING_DATA = REPO_ROOT / "data" / "training_data_v2.csv"
 
+# Canary configuration file (read / written by evaluator and app)
+CANARY_CONFIG = REPO_ROOT / "tests" / "deployment" / "config" / "canary_config.json"
+# Start canary at 10% by default for safer incremental rollout
+DEFAULT_CANARY_PERCENTAGE = 10.0
+
 
 # Data classes
 @dataclass
@@ -26,6 +34,8 @@ class DetectionResult:
     issue: Optional[str]
     ctr: float
     ctr_threshold: float
+    # Canary thresholds + per-model ctr
+    canary_ctr_ratio_threshold: float
     rating_male: Optional[float]
     rating_female: Optional[float]
     rating_ratio: Optional[float]
@@ -33,6 +43,7 @@ class DetectionResult:
     n_rec_events: int
     n_interaction_events: int
     n_quality_events: int
+    ctr_by_model: Dict[str, float] = field(default_factory=dict)
 
 
 # Loader
@@ -49,6 +60,40 @@ def load_online_metrics() -> Dict[str, Any]:
     data.setdefault("user_interactions", [])
     data.setdefault("recommendation_quality", [])
     return data
+
+
+# Helpers to read/write canary percentage
+def get_current_canary_percentage() -> float:
+    """
+    Read current canary percentage from CANARY_CONFIG.
+    Returns DEFAULT_CANARY_PERCENTAGE if file or field is missing.
+    """
+    # If config is missing, prefer safe behavior: assume 0% canary
+    if not CANARY_CONFIG.exists():
+        return 0.0
+    try:
+        with CANARY_CONFIG.open() as f:
+            cfg = json.load(f)
+        pct = float(cfg.get("canary_percentage", DEFAULT_CANARY_PERCENTAGE))
+        return max(0.0, min(100.0, pct))
+    except Exception as e:
+        print(f"[feedback_detection] Failed to read canary config: {e}", file=sys.stderr)
+        return 0.0
+
+
+def set_canary_percentage(pct: float) -> None:
+    """
+    Write new canary percentage into CANARY_CONFIG.
+    This is the control knob that app.py reads to decide v1 vs v2 traffic.
+    """
+    CANARY_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    pct_clamped = max(0.0, min(100.0, float(pct)))
+    cfg = {"canary_percentage": pct_clamped}
+    with CANARY_CONFIG.open("w") as f:
+        json.dump(cfg, f, indent=2)
+    print(f"[feedback_detection] Updated canary percentage to {pct_clamped:.1f}%")
+
+
 
 
 def load_user_gender_mapping() -> Dict[str, str]:
@@ -101,6 +146,51 @@ def compute_ctr(
     return hits / total_recommended
 
 
+def compute_ctr_per_model(
+    recommendations: List[Dict[str, Any]],
+    interactions: List[Dict[str, Any]],
+) -> Dict[str, float]:
+    """
+    Compute CTR per model_version (e.g., "v1", "v2").
+
+    CTR(model) = hits(model) / total_items_shown_by_model
+    """
+    model_user_to_items: Dict[str, Dict[str, List[str]]] = {}
+    total_by_model: Dict[str, int] = {}
+
+    for rec in recommendations:
+        model = str(rec.get("model_version", "unknown"))
+        uid = str(rec.get("user_id"))
+        items = rec.get("items", []) or []
+        items = [str(x) for x in items]
+
+        total_by_model[model] = total_by_model.get(model, 0) + len(items)
+        user_items = model_user_to_items.setdefault(model, {}).setdefault(uid, [])
+        user_items.extend(items)
+
+    if not total_by_model:
+        return {}
+
+    hits_by_model: Dict[str, int] = {m: 0 for m in total_by_model.keys()}
+
+    for ev in interactions:
+        uid = str(ev.get("user_id"))
+        item_id = str(ev.get("item_id"))
+        for model, user_to_items in model_user_to_items.items():
+            rec_items = user_to_items.get(uid, [])
+            if item_id in rec_items:
+                hits_by_model[model] += 1
+
+    ctr_by_model: Dict[str, float] = {}
+    for model, total in total_by_model.items():
+        if total > 0:
+            ctr_by_model[model] = hits_by_model[model] / total
+        else:
+            ctr_by_model[model] = 0.0
+
+    return ctr_by_model
+
+
 def compute_group_rating(
     quality_events: List[Dict[str, Any]],
     user_gender: Dict[str, str],
@@ -135,9 +225,16 @@ def detect_feedback_and_fairness() -> DetectionResult:
     recs = data["recommendations"]
     inter = data["user_interactions"]
     qual = data["recommendation_quality"]
-
     ctr = compute_ctr(recs, inter)
     print(f"[feedback_detection] Global CTR = {ctr:.4f} (threshold {CTR_THRESHOLD})")
+
+    # Per-model CTR (for canary vs stable)
+    ctr_by_model = compute_ctr_per_model(recs, inter)
+    if ctr_by_model:
+        for model, v in ctr_by_model.items():
+            print(f"[feedback_detection] CTR[{model}] = {v:.4f}")
+    else:
+        print("[feedback_detection] No per-model CTR data (no recommendations logged).")
 
     user_gender_map = load_user_gender_mapping()
     avg_ratings = compute_group_rating(qual, user_gender_map)
@@ -161,11 +258,25 @@ def detect_feedback_and_fairness() -> DetectionResult:
 
     issue: Optional[str] = None
 
-    # feedback based on CTR
+    # Global CTR feedback
     if ctr < CTR_THRESHOLD:
         issue = "feedback_low_ctr"
 
-    # Feedback based on gender rating fairness
+    # Compare original vs canary CTR
+    ctr_og = ctr_by_model.get("v1")
+    ctr_canary = ctr_by_model.get("v2")
+
+    if ctr_canary is not None:
+        # Absolute canary failure
+        if ctr_canary < CTR_THRESHOLD:
+            issue = (issue + "+canary_low_ctr_abs") if issue else "canary_low_ctr_abs"
+
+        # Relative underperformance vs v1
+        if ctr_og is not None and ctr_og > 0:
+            if ctr_canary < CANARY_CTR_RATIO_THRESHOLD * ctr_og:
+                issue = (issue + "+canary_low_ctr_rel") if issue else "canary_low_ctr_rel"
+
+    # Fairness based on rating ratio
     if rating_ratio is not None and rating_ratio < RATING_RATIO_THRESHOLD:
         issue = (issue + "+fairness_gender") if issue else "fairness_gender"
 
@@ -173,6 +284,7 @@ def detect_feedback_and_fairness() -> DetectionResult:
         issue=issue,
         ctr=ctr,
         ctr_threshold=CTR_THRESHOLD,
+        canary_ctr_ratio_threshold=CANARY_CTR_RATIO_THRESHOLD,
         rating_male=rating_m,
         rating_female=rating_f,
         rating_ratio=rating_ratio,
@@ -180,6 +292,7 @@ def detect_feedback_and_fairness() -> DetectionResult:
         n_rec_events=len(recs),
         n_interaction_events=len(inter),
         n_quality_events=len(qual),
+        ctr_by_model=ctr_by_model,
     )
 
 
@@ -191,7 +304,7 @@ def append_feedback_event(result: DetectionResult) -> None:
             events = json.load(f)
     else:
         events = []
-
+    # maybe requires user_id?
     event = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "issue": result.issue,
@@ -213,16 +326,133 @@ def trigger_retraining_pipeline() -> None:
     print("[feedback_detection] TRIGGERING RETRAINING PIPELINE (placeholder).")
 
 
+def _dir_has_files(p: Path) -> bool:
+    try:
+        if not p.exists() or not p.is_dir():
+            return False
+        for _ in p.iterdir():
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def promote_canary_to_stable() -> bool:
+    """
+    Promote the canary model (src/models/v2) to stable (src/models).
+    Steps:
+    - Validate v2 contains artifacts.
+    - Move current v1 -> models_prev/<timestamp>/
+    - Move v2 -> models/ (rename/move)
+    - Recreate empty v2 dir for future canaries
+    - Return True on success, False on failure (attempt rollback on failure)
+    """
+    v1_dir = REPO_ROOT / "src" / "models"
+    v2_dir = REPO_ROOT / "src" / "models" / "v2"
+    prev_root = REPO_ROOT / "src" / "models_prev"
+
+    print(f"[feedback_detection] Attempting to promote canary: v2={v2_dir} -> v1={v1_dir}")
+
+    if not _dir_has_files(v2_dir):
+        print(f"[feedback_detection] No artifacts found in {v2_dir}; aborting promotion.")
+        return False
+
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    prev_dir = prev_root / timestamp
+    try:
+        prev_root.mkdir(parents=True, exist_ok=True)
+
+        # Move v1 -> prev_dir (if v1 exists)
+        if v1_dir.exists():
+            print(f"[feedback_detection] Backing up current v1 -> {prev_dir}")
+            shutil.move(str(v1_dir), str(prev_dir))
+        else:
+            print(f"[feedback_detection] No existing v1 at {v1_dir}; skipping backup")
+
+        # Move v2 -> v1 (promote)
+        print(f"[feedback_detection] Promoting v2 -> v1")
+        shutil.move(str(v2_dir), str(v1_dir))
+
+        # Recreate an empty v2 dir for future canaries
+        v2_dir.mkdir(parents=True, exist_ok=True)
+
+        print("[feedback_detection] Promotion completed successfully.")
+        return True
+
+    except Exception as e:
+        print(f"[feedback_detection] Promotion failed: {e}")
+        # Attempt rollback: if prev_dir exists and v1 missing, restore
+        try:
+            if prev_dir.exists() and not v1_dir.exists():
+                print(f"[feedback_detection] Attempting rollback: restore {prev_dir} -> {v1_dir}")
+                shutil.move(str(prev_dir), str(v1_dir))
+        except Exception as re:
+            print(f"[feedback_detection] Rollback failed: {re}")
+        return False
+
+
 def main() -> None:
     result = detect_feedback_and_fairness()
 
     if result.issue is None:
         print("[feedback_detection] No feedback or fairness issue detected.")
         append_feedback_event(result)
+
+        # If we have no v2 traffic in the logs, there's nothing to roll out.
+        if "v2" not in result.ctr_by_model:
+            print("[feedback_detection] No canary (v2) traffic observed in logs; "
+                  "skipping canary rollout step.")
+            sys.exit(0)
+            
+        # Simple progressive rollout logic based on current percentage
+        current = get_current_canary_percentage()
+        print(f"[feedback_detection] Current canary percentage = {current:.1f}%")
+        # Only act when we have a minimum number of interactions to avoid noise
+        n_inter = result.n_interaction_events
+        if n_inter < 10:
+            print(f"[feedback_detection] Insufficient interactions ({n_inter}) to act; need >= 10.")
+            sys.exit(0)
+
+        # Act only on every 10th interaction batch to avoid frequent small changes
+        if (n_inter % 10) != 0:
+            print(f"[feedback_detection] Not acting until interactions reach a multiple of 10 (have {n_inter}).")
+            sys.exit(0)
+
+        # Progressive +10% step policy
+        if current < 10.0:
+            new_pct = 10.0
+        else:
+            new_pct = min(100.0, current + 10.0)
+
+        if new_pct != current:
+            print(f"[feedback_detection] Increasing canary percentage to {new_pct:.1f}%")
+            set_canary_percentage(new_pct)
+
+            # If we've reached 100%, promote canary to stable and then set canary back to 0%
+            if new_pct >= 100.0:
+                print("[feedback_detection] Canary reached 100% — attempting promotion to stable.")
+                promoted = promote_canary_to_stable()
+                if promoted:
+                    print("[feedback_detection] Promotion succeeded — setting canary percentage to 0%.")
+                    set_canary_percentage(0.0)
+                else:
+                    print("[feedback_detection] Promotion failed — setting canary percentage to 0% and aborting.")
+                    set_canary_percentage(0.0)
+                    append_feedback_event(result)
+                    abort_canary_release()
+                    trigger_retraining_pipeline()
+                    sys.exit(1)
+        else:
+            print("[feedback_detection] Keeping canary percentage unchanged.")
+
         sys.exit(0)
+
 
     print(f"[feedback_detection] ISSUE DETECTED: {result.issue}")
     append_feedback_event(result)
+    # Set 0% traffic to canary model - automatic rollback
+    print("[feedback_detection] Setting canary percentage to 0.0% due to detected issue.")
+    set_canary_percentage(0.0)
     abort_canary_release()
     trigger_retraining_pipeline()
     sys.exit(1)
