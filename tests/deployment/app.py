@@ -60,7 +60,7 @@ def get_current_canary_percentage() -> float:
     try:
         with CANARY_CONFIG.open() as f:
             cfg = json.load(f)
-        return max(0.0, min(100.0, float(cfg.get("canary_percentage", DEFAULT_CANARY_PERCENTAGE))))
+        return max(0.0, min(100.0, float(cfg.get("canary_percentage", 0.0 )))) #(cfg.get("canary_percentage",DEFAULT_CANARY_PERCENTAGE)
     except Exception:
         return 0.0 #DEFAULT_CANARY_PERCENTAGE
 
