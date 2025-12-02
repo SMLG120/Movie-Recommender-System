@@ -19,10 +19,16 @@ pytest-cov>=4.1.0
 #CF dependencies
 implicit==0.7.2
 prometheus-client>=0.19.0
-prometheus-flask-exporter>=0.23
-gunicorn>=21.2.0
+prometheus-flask-exporter>=
+pymongo>=4.0
+python
 pymongo>=4.0
 python-dotenv>=0.19.0
 fastapi>=0.95.0
 uvicorn>=0.21.0
+pydantic>=1.10.0.0
+pydantic>=1.10.0flask-exporter>=0.23
+gunicorn>=21.2.0
+>>>>>>> main
+n>=0.21.0
 pydantic>=1.10.0

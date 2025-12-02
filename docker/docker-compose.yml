@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   app:
     build: .
@@ -5,12 +7,4 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/app/data
-
-  kafka_ingest:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: ["python3", "src/stream_ingest.py"]
-    restart: always
-    volumes:
-      - ./data:/app/data
+      - ./models:/app/models

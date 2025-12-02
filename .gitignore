@@ -9,7 +9,10 @@ team_6_recommender_system.egg-info/
 venv/
 .venv/
 env/
+
+# Secrets (DO NOT COMMIT)
 .env
+.env.local
 .sh
 
 # IDE files
@@ -17,7 +20,6 @@ env/
 .idea/
 *.swp
 *.swo
-.gitkeep
 
 # OS files
 .DS_Store
@@ -26,11 +28,12 @@ Thumbs.db
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# Model files (if they're large - you might want to keep small ones)
-# *.pkl
-# *.joblib
-
 # Log files
 *.log
 data/raw_data/movies/
 *_xx.py
+
+# Keep CSV files (provenance tracking)
+!models/provenance.csv
+!models/prediction_events.csv
+!models/data_provenance.csv
