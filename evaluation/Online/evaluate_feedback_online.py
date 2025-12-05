@@ -64,10 +64,6 @@ def load_online_metrics() -> Dict[str, Any]:
 
 # Helpers to read/write canary percentage
 def get_current_canary_percentage() -> float:
-    """
-    Read current canary percentage from CANARY_CONFIG.
-    Returns DEFAULT_CANARY_PERCENTAGE if file or field is missing.
-    """
     # If config is missing, prefer safe behavior: assume 0% canary
     if not CANARY_CONFIG.exists():
         return 0.0
@@ -82,10 +78,6 @@ def get_current_canary_percentage() -> float:
 
 
 def set_canary_percentage(pct: float) -> None:
-    """
-    Write new canary percentage into CANARY_CONFIG.
-    This is the control knob that app.py reads to decide v1 vs v2 traffic.
-    """
     CANARY_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     pct_clamped = max(0.0, min(100.0, float(pct)))
     cfg = {"canary_percentage": pct_clamped}
@@ -296,7 +288,7 @@ def detect_feedback_and_fairness() -> DetectionResult:
     )
 
 
-def append_feedback_event(result: DetectionResult) -> None:
+def append_feedback_event(result: DetectionResult, action_taken: Optional[str] = None, reason: Optional[str] = None, pct_after: Optional[float] = None) -> None:
     FEEDBACK_EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
 
     if FEEDBACK_EVENTS_LOG.exists():
@@ -304,12 +296,57 @@ def append_feedback_event(result: DetectionResult) -> None:
             events = json.load(f)
     else:
         events = []
-    # maybe requires user_id?
+    
+    pct_before = get_current_canary_percentage()
+    
+    # Determine event type and action
+    if action_taken is None:
+        if result.issue:
+            action_taken = "ABORT"
+            event_type = "canary_abort"
+        else:
+            action_taken = "RAMP"
+            event_type = "canary_check"
+    else:
+        if action_taken == "PROMOTE_AND_RESET":
+            event_type = "promotion"
+        else:
+            event_type = "canary_check" if action_taken == "RAMP" else "canary_abort"
+    
+    # Build reason if not provided
+    if reason is None:
+        if result.issue:
+            reason = f"Issue detected: {result.issue}"
+        else:
+            reason = "No issues detected. Proceeding with canary rollout."
+    
+    # Default to current percentage if not provided
+    if pct_after is None:
+        pct_after = pct_before
+    
     event = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
+        "event_type": event_type,
         "issue": result.issue,
-        "details": asdict(result),
+        "details": {
+            "ctr": result.ctr,
+            "ctr_threshold": result.ctr_threshold,
+            "ctr_by_model": result.ctr_by_model,
+            "canary_ctr_ratio_threshold": result.canary_ctr_ratio_threshold,
+            "n_rec_events": result.n_rec_events,
+            "n_interaction_events": result.n_interaction_events,
+            "n_quality_events": result.n_quality_events,
+            "rating_male": result.rating_male,
+            "rating_female": result.rating_female,
+            "rating_ratio": result.rating_ratio,
+            "rating_ratio_threshold": result.rating_ratio_threshold,
+        },
+        "action_taken": action_taken,
+        "canary_percentage_before": pct_before,
+        "canary_percentage_after": pct_after,
+        "reason": reason,
     }
+    
     events.append(event)
 
     with FEEDBACK_EVENTS_LOG.open("w") as f:
@@ -396,12 +433,12 @@ def main() -> None:
 
     if result.issue is None:
         print("[feedback_detection] No feedback or fairness issue detected.")
-        append_feedback_event(result)
 
         # If we have no v2 traffic in the logs, there's nothing to roll out.
         if "v2" not in result.ctr_by_model:
             print("[feedback_detection] No canary (v2) traffic observed in logs; "
                   "skipping canary rollout step.")
+            append_feedback_event(result, action_taken="RAMP", reason="No canary traffic observed.")
             sys.exit(0)
             
         # Simple progressive rollout logic based on current percentage
@@ -411,11 +448,13 @@ def main() -> None:
         n_inter = result.n_interaction_events
         if n_inter < 10:
             print(f"[feedback_detection] Insufficient interactions ({n_inter}) to act; need >= 10.")
+            append_feedback_event(result, action_taken="RAMP", reason=f"Insufficient interactions ({n_inter}); need >= 10.")
             sys.exit(0)
 
         # Act only on every 10th interaction batch to avoid frequent small changes
         if (n_inter % 10) != 0:
             print(f"[feedback_detection] Not acting until interactions reach a multiple of 10 (have {n_inter}).")
+            append_feedback_event(result, action_taken="RAMP", reason=f"Waiting for interaction count multiple of 10 (have {n_inter}).")
             sys.exit(0)
 
         # Progressive +10% step policy
@@ -426,6 +465,15 @@ def main() -> None:
 
         if new_pct != current:
             print(f"[feedback_detection] Increasing canary percentage to {new_pct:.1f}%")
+            
+            # Log the ramp event BEFORE setting the new percentage
+            reason = f"CTR[v2]={result.ctr_by_model.get('v2', 0):.3f} > 70% of CTR[v1]={result.ctr_by_model.get('v1', 0):.3f}. Ramping to {new_pct:.0f}%."
+            if new_pct >= 100.0:
+                reason = f"All metrics healthy. Ramping to 100% for promotion."
+            
+            append_feedback_event(result, action_taken="RAMP", reason=reason, pct_after=new_pct)
+            
+            # Now update the canary percentage
             set_canary_percentage(new_pct)
 
             # If we've reached 100%, promote canary to stable and then set canary back to 0%
@@ -434,22 +482,24 @@ def main() -> None:
                 promoted = promote_canary_to_stable()
                 if promoted:
                     print("[feedback_detection] Promotion succeeded — setting canary percentage to 0%.")
+                    # Log the promotion event
+                    promotion_reason = f"Canary reached 100% with sustained performance (CTR[v2]={result.ctr_by_model.get('v2', 0):.3f} > 70% of v1={result.ctr_by_model.get('v1', 0):.3f}). Promotion successful."
+                    append_feedback_event(result, action_taken="PROMOTE_AND_RESET", reason=promotion_reason, pct_after=0.0)
                     set_canary_percentage(0.0)
                 else:
                     print("[feedback_detection] Promotion failed — setting canary percentage to 0% and aborting.")
                     set_canary_percentage(0.0)
-                    append_feedback_event(result)
-                    abort_canary_release()
-                    trigger_retraining_pipeline()
                     sys.exit(1)
         else:
             print("[feedback_detection] Keeping canary percentage unchanged.")
+            append_feedback_event(result, action_taken="RAMP", reason="Canary percentage unchanged.")
 
         sys.exit(0)
 
 
     print(f"[feedback_detection] ISSUE DETECTED: {result.issue}")
-    append_feedback_event(result)
+    reason = f"Issue detected: {result.issue}. Canary release aborted and traffic returned to v1 exclusively."
+    append_feedback_event(result, action_taken="ABORT", reason=reason, pct_after=0.0)
     # Set 0% traffic to canary model - automatic rollback
     print("[feedback_detection] Setting canary percentage to 0.0% due to detected issue.")
     set_canary_percentage(0.0)
