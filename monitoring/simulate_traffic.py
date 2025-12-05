@@ -82,6 +82,8 @@ def load_user_ids():
 def worker(user_ids, topn_choices, click_p):
     user_id = random.choice(user_ids)
     top_n = random.choice(topn_choices)
+    #added for canary
+    model_version = "v2" if random.random() < 0.10 else "v1"
     chosen = None  
 
     try:
@@ -92,6 +94,9 @@ def worker(user_ids, topn_choices, click_p):
         if recs:
             with EVAL_LOCK:
                 EVALUATOR.log_recommendation(str(user_id), recs, resp_time)
+                #for canary
+                if EVALUATOR.metrics.get("recommendations"):
+                    EVALUATOR.metrics["recommendations"][-1]["model_version"] = model_version
     except Exception as e:
         return f"user={user_id} rec_err={e}"
 
@@ -111,6 +116,9 @@ def worker(user_ids, topn_choices, click_p):
             if rc == 200:
                 with EVAL_LOCK:
                     EVALUATOR.log_interaction(str(user_id), str(chosen), "click")
+                    #for canary
+                    if EVALUATOR.metrics.get("user_interactions"):
+                        EVALUATOR.metrics["user_interactions"][-1]["model_version"] = model_version
         except Exception as e:
             msg.append(f"click_err={e}")
 
@@ -132,6 +140,9 @@ def worker(user_ids, topn_choices, click_p):
                         selected_item=str(chosen),
                         rating_score=true,
                     )
+                    #for canary
+                    if EVALUATOR.metrics.get("recommendation_quality"):
+                        EVALUATOR.metrics["recommendation_quality"][-1]["model_version"] = model_version
         except Exception as e:
             msg.append(f"rate_err={e}")
 
