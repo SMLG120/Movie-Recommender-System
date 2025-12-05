@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""
-Movie Recommender API – Production Server with Monitoring
-- Availability metrics via prometheus_flask_exporter
-- Model-quality metrics (CTR@K, HitRate@K, Online MAE/RMSE aggregates)
-- Health endpoints
-"""
 
 import os
 import sys
