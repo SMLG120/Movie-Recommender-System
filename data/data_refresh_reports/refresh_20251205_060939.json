@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-12-05T06:09:39.397440+00:00",
+  "stats": {
+    "users": 158657,
+    "movies": 23075,
+    "interactions": 281523,
+    "ratings": 177002
+  },
+  "deltas": {
+    "users": 15,
+    "movies": 1,
+    "interactions": 193948,
+    "ratings": 104218
+  }
+}
