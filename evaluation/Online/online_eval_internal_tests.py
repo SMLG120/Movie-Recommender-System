@@ -25,14 +25,14 @@ def main():
         user_id="u1",
         recommended_items=["m1", "m2", "m3"],
         selected_item="m2",
-        satisfaction_score=0.8
+        rating_score=4.0
     )
     
     evaluator.log_recommendation_quality(
         user_id="u2",
         recommended_items=["m2", "m4"],
         selected_item="m2",
-        satisfaction_score=1.0
+        rating_score=5.0
     )
     
     # --- Wait a few seconds to simulate real-time logging ---

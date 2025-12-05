@@ -62,9 +62,9 @@ def test_model_deployment_and_quality(tmp_evaluator):
     assert tmp_evaluator.metrics["model_versions"][0]["version"] == "v1.0"
 
     tmp_evaluator.log_recommendation_quality(
-        user_id="u1", recommended_items=["m1", "m2"], selected_item="m1", satisfaction_score=0.9
+        user_id="u1", recommended_items=["m1", "m2"], selected_item="m1", rating_score=4.0
     )
-    assert tmp_evaluator.metrics["recommendation_quality"][0]["satisfaction"] == 0.9
+    assert tmp_evaluator.metrics["recommendation_quality"][0]["rating"] == 4.0
 
 
 def test_compute_online_metrics(tmp_evaluator):

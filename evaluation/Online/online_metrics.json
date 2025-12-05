@@ -18,11 +18,11 @@
             "timestamp": "2025-10-23T20:50:10.255304", 
             "user_id": "u1", 
             "recommendations": ["m1", "m2", "m3"], 
-            "selected": "m2", "satisfaction": 0.8
+            "selected": "m2", "rating": 4.0
         }, 
             {"timestamp": "2025-10-23T20:50:10.257312", 
             "user_id": "u2", 
             "recommendations": ["m2", "m4"], 
             "selected": "m2", 
-            "satisfaction": 1.0
+            "rating": 5.0
             }]}

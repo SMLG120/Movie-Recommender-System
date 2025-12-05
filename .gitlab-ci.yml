@@ -172,7 +172,7 @@ evaluate_model:
 
 # # STAGE 3: BUILD (Infrastructure Testing)
 
-# # Docker Build - Build and push Docker image locally
+# Docker Build - Build and push Docker image locally
 # docker_build:
 #   stage: build
 #   image: docker:24
@@ -180,11 +180,11 @@ evaluate_model:
 #   services:
 #     - name: docker:24-dind
 #       alias: docker
-#       command: ["--tls=false"]
+#   #     command: ["--tls=false"]
 
-#   variables:
-#     DOCKER_HOST: "tcp://docker:2375"
-#     DOCKER_TLS_CERTDIR: ""
+#   # variables:
+#   #   DOCKER_HOST: "tcp://docker:2375"
+#   #   DOCKER_TLS_CERTDIR: ""
 
 #   script:
 #     - docker build -f docker/Dockerfile -t movie-recommender:ci .

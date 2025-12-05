@@ -21,6 +21,7 @@ from sklearn.metrics import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.trainer import Trainer
+from src.provenance import record_evaluation, register_model
 
 
 def regression_metrics(y_true, y_pred):
@@ -51,6 +52,7 @@ def evaluate(
 ):
     """
     Evaluate a trained model on offline data.
+    Records evaluation to provenance.
     Returns: (results_dict, y_test, y_pred)
     """
     # Load preprocessor and model
@@ -108,6 +110,35 @@ def evaluate(
     # Save results to JSON
     with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
+
+    # Record evaluation to provenance
+    try:
+        model_version = register_model({
+            "artifact_path": model_path,
+            "training_data_id": "data_training_v2",
+            "model_type": "XGBoost",
+            "metrics_json": reg_metrics
+        })
+        
+        record_evaluation({
+            "model_version": model_version,
+            "eval_type": "offline",
+            "preproc_path": preproc_path,
+            "model_path": model_path,
+            "eval_data_path": eval_data,
+            "test_set_size": len(X_test),
+            "rmse": reg_metrics["rmse"],
+            "mae": reg_metrics["mae"],
+            "r2": reg_metrics["r2"],
+            "precision": class_metrics["precision"],
+            "recall": class_metrics["recall"],
+            "f1": class_metrics["f1"],
+            "accuracy": class_metrics["accuracy"],
+            "inference_time_ms": inference_time * 1000,
+            "metrics_json": json.dumps(results)
+        })
+    except Exception as e:
+        print(f"Warning: Could not record evaluation to provenance: {e}")
 
     print(f"\nOffline evaluation completed. Results saved to: {results_path}")
     print(json.dumps(results, indent=4))
