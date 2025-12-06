@@ -27,13 +27,13 @@ Histogram.DEFAULT_BUCKETS = (
 
 # Config
 PORT = int(os.getenv("PORT", "8080"))
-MODEL_V1_PATH = os.getenv("MODEL_PATH", "src/models")
+MODEL_V1_PATH = os.getenv("MODEL_PATH", "src/models/v1")
 MODEL_V2_PATH = os.getenv("MODEL_CANARY_PATH", "src/models/v2")
 MOVIES_FILE = os.getenv("MOVIES_FILE", "data/raw_data/movies.csv")
 
 # Canonical repo-root and canary config used by evaluator and app
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MODEL_V1_PATH = os.getenv("MODEL_PATH", str(REPO_ROOT / "src" / "models"))
+MODEL_V1_PATH = os.getenv("MODEL_PATH", str(REPO_ROOT / "src" / "models" / "v1"))
 MODEL_V2_PATH = os.getenv("MODEL_CANARY_PATH", str(REPO_ROOT / "src" / "models" / "v2"))
 MOVIES_FILE = os.getenv("MOVIES_FILE", str(REPO_ROOT / "data" / "raw_data" / "movies.csv"))
 

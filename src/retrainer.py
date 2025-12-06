@@ -32,14 +32,23 @@ def main():
     # 5. Retrain
     promoted = retrain_mgr.run()
 
-    # 6. Persist retrain state (ONLY after success)
-    retrain_mgr.save_retrain_state(current)
+    if promoted:
+        retrain_mgr.save_retrain_state(current)
+        print("PROMOTED")
+        sys.exit(10)
+    else:
+        print("NOT_PROMOTED")
+        sys.exit(0)
 
-    # 7. DVC commit
-    # retrain_mgr.dvc_commit()
-
-    # # 8. Trigger canary
-    # retrain_mgr.deploy_canary()
+    # if promoted:
+    #     retrain_mgr.save_retrain_state(current)
+    #     print("Model promoted → triggering canary deploy")
+    #     subprocess.run(
+    #         ["python", "deploy_app.py"],
+    #         check=True,
+    #     )
+    # else:
+    #     print("No promotion → skipping deployment")
 
 if __name__ == "__main__":
     main()

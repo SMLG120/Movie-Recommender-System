@@ -1,5 +1,5 @@
-import os, gc, psutil
-import json
+import os, gc, psutil, shutil
+import json, subprocess
 import logging
 import pandas as pd
 from typing import Dict, Optional
@@ -158,34 +158,26 @@ class RetrainingManager:
     # split int0 subprocesses to reduce memory bloat
     def run(self):
         print(f"Starting model retraining {pd.Timestamp.utcnow().isoformat()}...")
-        
-        # Option 1: Sequential with subprocess (separate memory space)
         import subprocess
         
-        # subprocess.run(["python", "-c", "from retrain_mamanger import RetrainingManager; RetrainingManager().retrain_cf()"],
-                        # cwd=BASE_DIR,
-                        # check=True
-                        # )
-        # gc.collect()
-        # self.log_memory("After CF")
+        subprocess.run(["python", "-c", "from retrain_manager import RetrainingManager; RetrainingManager().retrain_cf()"],
+                        cwd=BASE_DIR,
+                        check=True
+                        )
+        gc.collect()
+        self.log_memory("After CF")
         
-        # subprocess.run(["python", "-c", "from retrain_mamanger import RetrainingManager; RetrainingManager().rebuild_features()"],
-                        # cwd=BASE_DIR,
-                        # check=True)
-        # gc.collect()
-        # self.log_memory("After Features")
+        subprocess.run(["python", "-c", "from retrain_manager import RetrainingManager; RetrainingManager().rebuild_features()"],
+                        cwd=BASE_DIR,
+                        check=True)
+        gc.collect()
+        self.log_memory("After Features")
         
-        # subprocess.run(["python", "-c", "from retrain_mamanger import RetrainingManager; RetrainingManager().retrain_xgboost()"],
-        #                 cwd=BASE_DIR,
-        #                 check=True
-        #                 )
-        # gc.collect()
-        # self.log_memory("After Training XGBoost")
 
         # Tuning subprocess
         subprocess.run(
             ["python", "-c",
-            "from retrain_mamanger import RetrainingManager; RetrainingManager().tune_xgboost()"],
+            "from src.retrain_manager import RetrainingManager; RetrainingManager().tune_xgboost()"],
             cwd=BASE_DIR,
             check=True,
         )
@@ -195,7 +187,7 @@ class RetrainingManager:
         # Training subprocess (clean memory)
         subprocess.run(
             ["python", "-c",
-            "from retrain_mamanger import RetrainingManager; RetrainingManager().train_xgboost()"],
+            "from src.retrain_manager import RetrainingManager; RetrainingManager().train_xgboost()"],
             cwd=BASE_DIR,
             check=True,
         )
@@ -204,18 +196,33 @@ class RetrainingManager:
 
         # evaluate the model
         print("Starting model evaluation...")
-        subprocess.run(["python", "-c", "from retrain_mamanger import RetrainingManager; RetrainingManager().evaluate_model()"])
+        subprocess.run(["python", "-c", "from retrain_manager import RetrainingManager; RetrainingManager().evaluate_model()"])
         self.log_memory("After Evaluation")
         print("Model evaluation complete.")
-
+        self.ensure_dvc_initialized()
+        # track model artifact
         subprocess.run(
-                ["dvc", "add", "src/models/candidate"],
-                cwd=BASE_DIR,
-                check=True,
-            )
-        self.register_candidate_provenance()
-        self.promote_if_better()
+            ["dvc", "add", "src/models/candidate"],
+            cwd=BASE_DIR,
+            check=True,
+        )
 
+        # track training data
+        subprocess.run(
+            ["dvc", "add", "data/training_data.parquet"],
+            cwd=BASE_DIR,
+            check=True,
+        )
+
+        self.register_candidate_provenance()
+        promoted = self.promote_if_better()
+        return bool(promoted)
+
+    @staticmethod
+    def ensure_dvc_initialized():
+        if not os.path.exists(".dvc"):
+            subprocess.run(["dvc", "init", "--no-scm", "-f"], check=True)
+            subprocess.run(["dvc", "config", "core.no_scm", "true"], check=True)
 
     def retrain_cf(self):
         config = {
@@ -254,7 +261,7 @@ class RetrainingManager:
         final_df.to_parquet('data/training_data.parquet')
         print(f"[INFO] Saved data/training_data.parquet with shape: {final_df.shape}")
         # Clean up
-        del final_df, train_df, holdout_df, fb
+        del final_df, fb
         gc.collect()
 
     def tune_xgboost(self):
@@ -298,37 +305,6 @@ class RetrainingManager:
 
         print("Model training completed")
 
-    # def retrain_xgboost(self):
-    #     train_data = "data/training_data.parquet"
-    #     trainer = Trainer(data_file=train_data, target="rating")
-    #     print("Starting hyperparameter tuning...")
-    #     output_dir = "src/models/candidate"
-    #     os.makedirs(output_dir, exist_ok=True)
-
-    #     tuning_df = trainer.load_data()
-    #     print(f"[INFO] Loaded training data with shape: {tuning_df.shape}")
-    #     tuning_df = tuning_df.sample(frac=0.2, random_state=42).reset_index(drop=True)
-
-    #     # Tune hyperparameters
-    #     print("Tuning data shape:", tuning_df.shape)
-    #     best_params = trainer.tune(tuning_file="src/models/candidate/tuning_results.json", tune_df=tuning_df)
-
-    #     del tuning_df
-    #     gc.collect()
-        
-    #     # Extract model params (remove 'model__' prefix)
-    #     model_params = {k.replace('model__', ''): v for k, v in best_params.items()}
-    #     del trainer 
-    #     gc.collect()
-
-    #     self.log_memory("After Tuning XGBoost")
-        
-    #     trainer = Trainer(data_file=train_data, target="rating") # load a fresh trainer
-    #     trainer.train(tuning_params=model_params)
-    #     print("Model training completed")
-    #     trainer.save(output_dir="src/models/candidate")
-    #     del trainer
-    #     gc.collect()
     
     def evaluate_model(self):
         # Paths to models, preprocessor, and data
@@ -369,14 +345,17 @@ class RetrainingManager:
         if better(cand, v2):
             self.logger.info("Candidate beats v2 → promote to v2")
             self._shift_models(new="candidate", to_v2=True)
+            return True
         elif better(cand, v1):
             self.logger.info("Candidate beats v1 only → promote to v1")
             self._shift_models(new="candidate", to_v2=False)
+            return True
         else:
             self.logger.info("Candidate rejected (no improvement)")
+            return False
 
     @staticmethod
-    def _shift_models(self, new, to_v2):
+    def _shift_models(new, to_v2):
         if to_v2:
             if os.path.exists("src/models/v2"):
                 shutil.rmtree("src/models/v1", ignore_errors=True)
@@ -398,7 +377,7 @@ class RetrainingManager:
         with open(STATE_PATH, "w") as f:
             json.dump({
                 "users_seen": stats["users"],
-                "interactions_seen": stats["watch_events"],
+                "interactions_seen": stats["interactions"],
                 "last_retrain_ts": pd.Timestamp.utcnow().isoformat()
             }, f, indent=2)
 
@@ -424,7 +403,7 @@ class RetrainingManager:
         })
 
         # 2. DVC hash for candidate model
-        dvc_md5 = _get_dvc_md5("src/models/candidate.dvc")
+        dvc_md5 = self._get_dvc_md5("src/models/candidate.dvc")
 
         # 3. Evaluation metrics
         with open("src/models/candidate/evaluation_results.json") as f:
@@ -432,7 +411,7 @@ class RetrainingManager:
 
         # 4. Register model
         model_version = register_model({
-            "artifact_path": "dvc_md5",
+            "artifact_path": f"src/models/candidate (md5={dvc_md5}",
             "training_data_id": data_id,
             "metrics_json": eval_results,
             "model_type": "XGBoost",
@@ -454,8 +433,8 @@ if __name__ == "__main__":
     retrain_manager = RetrainingManager(data_dir="data")
 
     # check new data quantity
-    new_users = report['deltas']['users']
-    new_interactions = report['deltas']['interactions']
+    new_users = report['stats']['users']
+    new_interactions = report['stats']['interactions']
 
     state = retrain_manager.load_retrain_state()
 
@@ -473,22 +452,3 @@ if __name__ == "__main__":
     retrain_manager.run()
     # save retrain state
     retrain_manager.save_retrain_state(current)
-    # test out dvc, test out canary, test out full run with docker builds,etc.
-
-
-    #     report = {
-#   "timestamp": "2025-12-05T06:31:08.643076+00:00",
-#   "stats": {
-#     "users": 158682,
-#     "movies": 23080,
-#     "interactions": 282084,
-#     "ratings": 177005
-#   },
-#   "deltas": {
-#     "users": 100,
-#     "movies": 0,
-#     "interactions": 500,
-#     "ratings": 0
-#   }
-# }
-
