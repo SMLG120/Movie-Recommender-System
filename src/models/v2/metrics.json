@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-12-05T20:03:52.410942",
+  "metrics": {
+    "rmse": 0.6033330598017387,
+    "mae": 0.4857471287250519,
+    "r2": 0.34788769483566284
+  },
+  "avg_infer_time_sec": 6e-06,
+  "test_samples": 10000,
+  "training_time_sec": 14.84,
+  "train_samples": 90000
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "timestamp": "2025-12-05T20:03:28.577372",
+    "best_params": {
+      "model__colsample_bytree": 0.8,
+      "model__learning_rate": 0.1,
+      "model__max_depth": 2,
+      "model__n_estimators": 142,
+      "model__subsample": 0.8
+    },
+    "best_cv_rmse": 0.695613294839859,
+    "tuning_time_sec": 42.17,
+    "cv_folds": 2,
+    "param_grid_size": 10
+  }
+]
