@@ -9,8 +9,8 @@ def main():
     refresh_mgr = DataRefreshManager(data_dir="data")
     report = refresh_mgr.refresh(pipeline)
     print(json.dumps(report, indent=2))
-    new_users = report['deltas']['users']
-    new_interactions = report['deltas']['interactions']
+    new_users = report['stats']['users']
+    new_interactions = report['stats']['interactions']
 
     # 2. Load retrain manager + state
     retrain_mgr = RetrainingManager(data_dir="data")
