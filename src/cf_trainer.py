@@ -1,4 +1,4 @@
-import os
+import os, gc
 import json
 import joblib
 import numpy as np
@@ -67,10 +67,14 @@ class CFTrainer:
     def train_explicit(self):
         cfg = self.config
         ratings_csv = cfg["ratings_csv"]
+        print(f"Loading ratings from {ratings_csv}")
         self.logger.info(f"[EXPLICIT] Loading ratings from {ratings_csv}")
         ratings = self.reader(ratings_csv).dropna(subset=["user_id", "movie_id", "rating"])
         ratings["user_id"] = ratings["user_id"].astype(str)
         ratings["movie_id"] = ratings["movie_id"].astype(str)
+        ratings = ratings[~(ratings['user_id'].isin(cfg['test_ids']))] if cfg.get('test_ids') else ratings
+        ratings["rating"] = pd.to_numeric(ratings["rating"], errors="coerce")
+        ratings = ratings.dropna(subset=["rating"])
 
         reader = Reader(rating_scale=(ratings["rating"].min(), ratings["rating"].max()))
         data = Dataset.load_from_df(ratings[["user_id", "movie_id", "rating"]], reader)
@@ -108,6 +112,10 @@ class CFTrainer:
         self.writer(item_f, f"{self.out_dir}/movie_factors_explicit.csv")
         self.json_writer({"user_map": user_map, "item_map": item_map},
                          f"{self.out_dir}/maps/explicit_maps.json")
+
+        del ratings, trainset, user_f, item_f
+        gc.collect()
+
         self.logger.info("[EXPLICIT] Finished SVD training")
 
     # Implicit CF (ALS)
@@ -127,7 +135,11 @@ class CFTrainer:
     def train_implicit(self):
         cfg = self.config
         watch = self.reader(cfg["watch_csv"])
-        movies = self.reader(cfg["movies_csv"], usecols=["id", "runtime"]).dropna(subset=["id"])
+        watch["user_id"] = watch["user_id"].astype(str)
+        watch = watch[~(watch['user_id'].isin(cfg['test_ids']))] if cfg.get('test_ids') else watch #filter test IDs
+        movies = self.reader(cfg["movies_csv"], usecols=["id", "runtime"]).dropna(subset=["id"]).drop_duplicates(subset=["id"], keep="first")
+        print(f"Loaded watch data: {watch.shape[0]} rows")
+        print(f"Loaded movies data: {movies.shape[0]} rows")
 
         watch = (
             watch.merge(movies, how="left", left_on="movie_id", right_on="id", validate="many_to_one")
@@ -172,6 +184,9 @@ class CFTrainer:
         self.writer(item_f, f"{self.out_dir}/movie_factors_implicit.csv")
         self.json_writer({"user_map": u2i, "item_map": i2i},
                          f"{self.out_dir}/maps/implicit_maps.json")
+        
+        del watch, movies, user_f, item_f
+        gc.collect()
         self.logger.info("[IMPLICIT] Finished ALS training")
 
     def run(self, run_explicit=True, run_implicit=True):
@@ -189,7 +204,7 @@ class CFTrainer:
                 self.logger.warning(f"[WARN] Implicit CF failed: {e}")
 
         # Postprocess mean embeddings
-        self._compute_mean_embeddings()
+        self._compute_mean_embeddings(output_path=self.config["mean_embed_out"])
         self.logger.info("==== All CF models complete ====")
 
     def _compute_mean_embeddings(self, output_path="src/models/mean_embeddings.joblib"):
@@ -230,7 +245,9 @@ if __name__ == "__main__":
     parser.add_argument("--ratings_csv", type=str, default="data/raw_data/ratings.csv", help="Path to ratings CSV file.")
     parser.add_argument("--watch_csv", type=str, default="data/raw_data/watch_time.csv", help="Path to watch time CSV file.")
     parser.add_argument("--movies_csv", type=str, default="data/raw_data/movies.csv", help="Path to movies CSV file.")
+    parser.add_argument("--test_ids", type=str, default=None, help="List of IDs reserved for testing (optional).")
     parser.add_argument("--out_dir", type=str, default="data/embeddings", help="Output directory for embeddings.")
+    parser.add_argument("--mean_embed_out", type=str, default="src/models/mean_embeddings.joblib", help="Output directory for embeddings.")
 
     # Explicit CF (SVD)
     parser.add_argument("--svd_factors", type=int, default=50, help="Number of latent factors for SVD.")

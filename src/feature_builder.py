@@ -1,4 +1,4 @@
-import joblib
+import joblib, gc
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -19,6 +19,7 @@ class FeatureBuilder:
         movie_explicit_factors: Optional[str] = None,
         user_implicit_factors: Optional[str] = None,
         movie_implicit_factors: Optional[str] = None,
+        test_ids: Optional[list] = None,
         mode: str = "train",
         reader: Callable[[str], pd.DataFrame] = None,   # inject for tests
         logger: Optional[Callable[[str], None]] = None,
@@ -29,6 +30,7 @@ class FeatureBuilder:
         self._log = logger or (lambda msg: print(msg))
 
         # Load data (mockable)
+        self.test_ids = test_ids or []
         self.movies = self._safe_read(movies_file)
         self.ratings = self._safe_read(ratings_file)
         self.users = self._safe_read(users_file)
@@ -45,19 +47,25 @@ class FeatureBuilder:
         if not p.exists():
             self._log(f"[WARN] File not found: {path}")
             return None
-        return self._read_csv(path)
+        data = self._read_csv(path)
+        data = data[~(data['user_id'].isin(self.test_ids))] if 'user_id' in data.columns else data
+        return data
 
 
     def build(self, df_override=None):
         """Build the final feature dataframe."""
         df = self._prepare_base(df_override)
         df = self._coerce_types(df)
+        print(f"[INFO] Dataframe shape after base preparation ({self.mode}): {df.shape}")
         df = self._fill_missing(df)
-        df = self._handle_dates_and_bins(df) 
+        df = self._handle_dates_and_bins(df)
+        print(f"[INFO] Dataframe shape after filling missing and handling dates ({self.mode}): {df.shape}")
         df = self._countries_and_languages(df)
         df = self._clip_outliers(df)
+        print(f"[INFO] Dataframe shape after clipping outliers ({self.mode}): {df.shape}")
         df = self._encode_features(df)
         df = self._merge_embeddings(df)
+        print(f"[INFO] Dataframe shape after merging embeddings ({self.mode}): {df.shape}")
         self.df = self._select_final_columns(df)
         self._log(f"[INFO] Final feature dataframe shape ({self.mode}): {self.df.shape}")
         return self.df
@@ -65,10 +73,16 @@ class FeatureBuilder:
 
     def _prepare_base(self, df_override):
         if self.mode == "train":
+            self.users = self.users.drop_duplicates(subset=["user_id"])
+            self.movies = self.movies.drop_duplicates(subset=["id"])
+            self.ratings.dropna(subset=["user_id", "movie_id"], inplace=True)
+            self.ratings["user_id"] = pd.to_numeric(self.ratings["user_id"], errors="coerce").astype("Int64")
+            self.users["user_id"] = pd.to_numeric(self.users["user_id"], errors="coerce").astype("int64")
             if self.ratings is None or self.users is None or self.movies is None:
                 raise ValueError("Missing one of ratings/users/movies for training mode.")
             df = self.ratings.merge(self.users, on="user_id", how="left")
             df = df.merge(self.movies, left_on="movie_id", right_on="id", how="left")
+            print(f"[INFO] Merged training data shape: {df.shape}")
         elif self.mode == "inference":
             if df_override is None:
                 raise ValueError("Inference mode requires df_override.")
@@ -161,7 +175,7 @@ class FeatureBuilder:
         df.drop(columns=["normalized_langs"], inplace=True)
         return df
 
-    def _merge_embeddings(self, df, mean_path="src/models/mean_embeddings.joblib"):
+    def _merge_embeddings(self, df, mean_path="src/models/v2/mean_embeddings.joblib"):
         def _safe_merge(base, other, on, prefix):
             if other is None:
                 return base
@@ -207,6 +221,7 @@ class FeatureBuilder:
 
 
 if __name__ == "__main__":
+    print("[INFO] Saved training_data.csv")
     data_dir = "data/raw_data"
     embedding_dir = "data/embeddings"
     fb = FeatureBuilder(
@@ -220,5 +235,7 @@ if __name__ == "__main__":
                 mode="train"
     )
     final_df = fb.build()
-    final_df.to_csv("data/training_data_v2.csv", index=False)
-    print("[INFO] Saved training_data_v2.csv")
+    final_df.to_parquet("data/training_data.parquet", index=False)
+    del final_df, fb
+    gc.collect()
+    print("[INFO] Saved training_data.parquet")

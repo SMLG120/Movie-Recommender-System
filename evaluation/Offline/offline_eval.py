@@ -21,6 +21,7 @@ from sklearn.metrics import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.trainer import Trainer
+from src.feature_builder import FeatureBuilder
 from src.provenance import record_evaluation, register_model
 
 
@@ -47,8 +48,8 @@ def classification_metrics(y_true, y_pred, threshold=3):
 def evaluate(
     preproc_path="src/models/preprocessor.joblib",
     model_path="src/models/xgb_model.joblib",
-    eval_data="data/training_data_v2.csv",
     results_path="evaluation_results.json",
+    eval_data="data/test_data/offline_eval_data.parquet",
 ):
     """
     Evaluate a trained model on offline data.
@@ -64,7 +65,7 @@ def evaluate(
     if hasattr(preprocessor, "transformers"):
         print("Transformers in preprocessor:")
         for name, transformer, cols in preprocessor.transformers:
-            print(f"  - {name}: {type(transformer)} on columns {cols}")
+            # print(f"  - {name}: {type(transformer)} on columns {cols}")
             # Only error if transformer is a string but NOT "passthrough" or "drop"
             if isinstance(transformer, str) and transformer not in ("passthrough", "drop"):
                 raise TypeError(
@@ -82,19 +83,20 @@ def evaluate(
     pipeline = Pipeline([("preprocessor", preprocessor), ("model", model)])
 
     # Load evaluation dataset
-    print(f"Loading evaluation data from: {eval_data}")
-    trainer = Trainer()
-    trainer.df = pd.read_csv(eval_data)
-    X, y, _, _, _ = trainer.prepare_features()
+    data = pd.read_parquet(eval_data)
+    y_test = data["rating"].to_numpy()
 
-    # Split into test set (offline evaluation)
-    _, X_test, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    print(f"Evaluation dataset: {X_test.shape[0]} samples")
+    expected_cols = list(preprocessor.feature_names_in_)
+    for col in expected_cols:
+        if col not in data.columns:
+            data[col] = 0
+
+    data = data[expected_cols]
 
     # Run inference
     start_time = time.time()
-    preds = pipeline.predict(X_test)
-    inference_time = (time.time() - start_time) / max(len(X_test), 1)
+    preds = pipeline.predict(data)
+    inference_time = (time.time() - start_time) / max(len(data), 1)
 
     # Compute metrics
     reg_metrics = regression_metrics(y_test, preds)
@@ -126,7 +128,7 @@ def evaluate(
             "preproc_path": preproc_path,
             "model_path": model_path,
             "eval_data_path": eval_data,
-            "test_set_size": len(X_test),
+            "test_set_size": len(data),
             "rmse": reg_metrics["rmse"],
             "mae": reg_metrics["mae"],
             "r2": reg_metrics["r2"],
@@ -141,16 +143,16 @@ def evaluate(
         print(f"Warning: Could not record evaluation to provenance: {e}")
 
     print(f"\nOffline evaluation completed. Results saved to: {results_path}")
-    print(json.dumps(results, indent=4))
+    # print(json.dumps(results, indent=4))
 
     return results, y_test, preds
 
 
 if __name__ == "__main__":
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-    preproc_path = os.path.join(project_root, "src", "models", "preprocessor.joblib")
-    model_path = os.path.join(project_root, "src", "models", "xgb_model.joblib")
-    eval_data = os.path.join(project_root, "data", "training_data_v2.csv")
+    preproc_path = os.path.join("src", "models", "v2", "preprocessor.joblib")
+    model_path = os.path.join("src", "models", "v2", "xgb_model.joblib")
+    eval_data = os.path.join("data", "test_data", "offline_eval_data.parquet")
     results_path = os.path.join(project_root, "evaluation", "Offline", "evaluation_results.json")
 
     evaluate(
@@ -159,3 +161,4 @@ if __name__ == "__main__":
         eval_data=eval_data,
         results_path=results_path,
     )
+

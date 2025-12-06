@@ -1,0 +1,30 @@
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install PDM
+RUN pip install --no-cache-dir pdm
+
+# Copy dependency metadata
+COPY pyproject.toml pdm.lock ./
+
+RUN pdm config python.use_venv false \
+ && pdm install --prod --no-editable
+
+# Copy code
+COPY . .
+
+WORKDIR /app
+ENV PYTHONPATH=/app/src
+ENV DVC_NO_SCM=true
+
+CMD ["pdm", "run", "python", "src/retrainer.py"]
