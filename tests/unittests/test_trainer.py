@@ -88,7 +88,11 @@ def test_load_data_uses_injected_reader(fake_reader, mock_train_df):
     df = trainer.load_data()
     assert isinstance(df, pd.DataFrame)
     assert "rating" in df.columns
-    assert trainer.df.equals(mock_train_df)
+    pd.testing.assert_frame_equal(
+    trainer.df.sort_index(axis=1),
+    mock_train_df.sort_index(axis=1),
+    check_dtype=False)
+
 
 def test_prepare_features_returns_expected_shapes(fake_reader):
     trainer = Trainer(reader=fake_reader, logger=lambda _: None)

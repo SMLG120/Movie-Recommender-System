@@ -61,24 +61,49 @@ def test_extract_rating_event_valid():
     assert rating["movie_id"] == "movieX" and rating["rating"] == 5
 
 def test_parse_logs_and_file_write(tmp_path):
-    lines = ["t1,u1,/data/m/m1/1.mpg", "t2,u1,/data/m/m1/2.mpg", "t3,u2,/data/m/m2/1.mpg"]
+    lines = [
+        "t1,u1,/data/m/m1/1.mpg",
+        "t2,u1,/data/m/m1/2.mpg",
+        "t3,u2,/data/m/m2/1.mpg",
+    ]
+
+    # ensure failed_movies.txt exists
+    failed = tmp_path / "raw_data/failed_movies.txt"
+    failed.parent.mkdir(parents=True, exist_ok=True)
+    failed.write_text("")
+
     parser = LogParser(output_dir=str(tmp_path), file_reader=lambda _: lines)
     users, movies = parser.parse_logs("fake.log")
+
     assert users == {"u1", "u2"}
     assert movies == {"m1", "m2"}
+
     output_csv = tmp_path / "raw_data/watch_time.csv"
     assert output_csv.exists()
+
     with open(output_csv) as f:
         rows = list(csv.DictReader(f))
+
     assert {"user_id", "movie_id", "interaction_count", "max_minute_reached"} <= set(rows[0].keys())
 
 
 def test_parse_ratings_filters_known_entities(tmp_path):
-    lines = ["t1,u1,GET /rate/m1=4", "t2,u2,GET /rate/m2=5"]
+    lines = [
+        "t1,u1,GET /rate/m1=4",
+        "t2,u2,GET /rate/m2=5",
+    ]
+
+    # ensure ratings.csv exists before pandas reads it
+    ratings_csv = tmp_path / "raw_data/ratings.csv"
+    ratings_csv.parent.mkdir(parents=True, exist_ok=True)
+    ratings_csv.write_text("timestamp,user_id,movie_id,rating\n")
+
     parser = LogParser(output_dir=str(tmp_path), file_reader=lambda _: lines)
     ratings = parser.parse_ratings("fake.log", {"u1"}, {"m1"})
+
     assert len(ratings) == 1
-    assert ratings[0]["user_id"] == "u1" and ratings[0]["movie_id"] == "m1"
+    assert ratings[0]["user_id"] == "u1"
+    assert ratings[0]["movie_id"] == "m1"
 
 # MetadataFetcher Tests
 def test_fetch_user_success():
