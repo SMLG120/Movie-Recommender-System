@@ -1,10 +1,11 @@
-import os
+import os, gc
 import re
 import csv
 import glob
 import json
 import time
 import requests
+import subprocess
 import logging
 import pandas as pd
 from tqdm import tqdm
@@ -21,7 +22,7 @@ class KafkaLogCollector:
     def __init__(
         self,
         topic="movielog6",
-        duration=600,
+        duration=60,
         flush_interval=100,
         output_dir="data",
         consumer_factory=None, 
@@ -67,7 +68,7 @@ class KafkaLogCollector:
         processed = 0
         self.logger.info(f"Collecting logs from {self.topic} for {self.duration}s")
 
-        with open(output_log, "a", encoding="utf-8") as f:
+        with open(output_log, "w", encoding="utf-8") as f:
             while self._time.time() - start_time < self.duration:
                 msg = consumer.poll(1.0)
                 if msg is None:
@@ -84,6 +85,8 @@ class KafkaLogCollector:
                     self.logger.info(f"Processed {processed} messages...")
 
         consumer.close()
+        del consumer
+        gc.collect()
         self.logger.info(f"Finished consuming after {self.duration}s, total {processed} messages.")
         return output_log
 
@@ -150,6 +153,7 @@ class LogParser:
         """Parse logs and return new user/movie IDs."""
         self.logger.info(f"Parsing logs from {logfile}")
         output_csv = os.path.join(self.output_dir, "raw_data/watch_time.csv")
+        failed_movies_path = os.path.join(self.output_dir, "raw_data/failed_movies.txt")
         os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
         existing_pairs = set()
@@ -157,6 +161,9 @@ class LogParser:
             with open(output_csv, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 existing_pairs = {(r["user_id"], r["movie_id"]) for r in reader}
+
+        with open(failed_movies_path, "r", encoding="utf-8") as f:
+            failed_movies = [line.strip() for line in f if line.strip()]
 
         user_ids, movie_ids = set(), set()
         watch_minutes = defaultdict(lambda: defaultdict(set))
@@ -171,10 +178,22 @@ class LogParser:
             watch_minutes[user][movie].add(minute)
 
         rows = []
+        new_user_ids = set()
+        new_movie_ids = set()
+
         for user, movies in watch_minutes.items():
             for movie, minutes in movies.items():
-                if (user, movie) not in existing_pairs:
-                    rows.append([user, movie, len(minutes), max(minutes)])
+                if (user, movie) in existing_pairs:
+                    continue
+                if movie in failed_movies:
+                    continue
+                rows.append([user, movie, len(minutes), max(minutes)])
+                new_user_ids.add(user)
+                new_movie_ids.add(movie)
+        # for user, movies in watch_minutes.items():
+        #     for movie, minutes in movies.items():
+        #         if (user, movie) not in existing_pairs:
+        #             rows.append([user, movie, len(minutes), max(minutes)])
 
         if rows:
             self.file_writer(
@@ -186,7 +205,7 @@ class LogParser:
             f"Processed {len(user_ids)} users and {len(movie_ids)} movies. "
             f"Saved watch time interactions to {output_csv}"
         )
-        return user_ids, movie_ids
+        return new_user_ids, new_movie_ids
 
     def parse_ratings(self, logfile: str, user_ids: set, movie_ids: set):
         """Extract ratings filtered by known users/movies."""
@@ -202,10 +221,19 @@ class LogParser:
 
         if ratings:
             self.logger.info(f"Extracted {len(ratings)} ratings → {output_csv}")
-            with open(output_csv, "w", newline="", encoding="utf-8") as f:
+            with open(output_csv, "a", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=["timestamp", "user_id", "movie_id", "rating"])
-                writer.writeheader()
+                # writer.writeheader()
                 writer.writerows(ratings)
+
+        # remove buplicate ratings
+        ratings_df = pd.read_csv(output_csv)
+        ratings_df = (
+                ratings_df
+                .sort_values("timestamp")
+                .drop_duplicates(subset=["user_id", "movie_id"], keep="last")
+            )
+        ratings_df.to_csv(output_csv, index=False)
 
         return ratings
 
@@ -262,6 +290,11 @@ class MetadataFetcher:
                     json.dump(data, f)
                 return data
             else:
+                failed_movies = "data/raw_data/failed_movies.txt"
+                with open(failed_movies, "a+", encoding="utf-8") as f:
+                    f.seek(0)
+                    if movie_id not in {line.strip() for line in f}:
+                        f.write(f"{movie_id}\n")
                 self.logger.warning(f"Movie {movie_id} returned {r.status_code}")
         except Exception as e:
             self.logger.error(f"Movie fetch error {movie_id}: {e}")
@@ -339,9 +372,9 @@ class MetadataFetcher:
         if not movies:
             raise ValueError("No movie JSON files found to process.")
 
-        with open(movie_csv, "w", newline="", encoding="utf-8") as f:
+        with open(movie_csv, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=movies[0].keys())
-            writer.writeheader()
+            # writer.writeheader()
             writer.writerows(movies)
 
         self.logger.info(f"Saved {len(movies)} movies into {movie_csv}")
@@ -371,13 +404,14 @@ class DataPipeline:
 
         # Initialization only if not provided (real runtime)
         if self.collector is None:
-            from recommender.data_download import KafkaLogCollector
-            self.collector = KafkaLogCollector(topic, output_dir=self.output_dir, duration=7200, flush_interval=200)
+            # from recommender.data_download import KafkaLogCollector
+            self.collector = KafkaLogCollector(topic, output_dir=self.output_dir, duration=60, flush_interval=100)
+            print("Initialized KafkaLogCollector")
         if self.parser is None:
-            from recommender.log_parser import LogParser
+            # from recommender.log_parser import LogParser
             self.parser = LogParser(output_dir=self.output_dir)
         if self.fetcher is None:
-            from recommender.metadata import MetadataFetcher
+            # from recommender.metadata import MetadataFetcher
             self.fetcher = MetadataFetcher(
                 user_api="http://fall2025-comp585.cs.mcgill.ca:8080/user/",
                 movie_api="http://fall2025-comp585.cs.mcgill.ca:8080/movie/",
@@ -388,15 +422,25 @@ class DataPipeline:
 
     def run(self):
         """Execute full pipeline; return summary dict for testing."""
-        self.logger.info("Starting pipeline run...")
+        self.logger.info("Starting data pipeline run...")
+        print("Starting pipeline run...")
         logfile = self.collector.collect()
+        # subprocess.run(["python", "-c", "from download_data import KafkaLogCollector; KafkaLogCollector(topic, output_dir=self.output_dir, duration=900, flush_interval=100).collect()"])
+        # logfile = "event_stream.log"
+        self.logger.info(f"Log collection complete: {logfile}")
+        print(f"Log collection complete: {logfile}")
         users, movies = self.parser.parse_logs(logfile)
-
+        print("Log parser complete.")
         self.logger.info(f"Parsed {len(users)} users and {len(movies)} movies from logs")
 
-        self.fetcher.fetch_all_users(users)
-        self.fetcher.fetch_all_movies(movies)
+        if users:
+            self.fetcher.fetch_all_users(users)
+        
+        if movies:
+            self.fetcher.fetch_all_movies(movies)
+            
         self.parser.parse_ratings(logfile, users, movies)
+        print("Metadata fetching and rating parsing complete.")
 
         self.logger.info("Pipeline complete!")
         return {"users": len(users), "movies": len(movies)}
