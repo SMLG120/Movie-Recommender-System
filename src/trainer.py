@@ -22,7 +22,7 @@ class Trainer:
         target="rating",
         test_size=0.1,
         random_state=42,
-        metrics_out="src/train_results/metrics.json",
+        metrics_out="src/models/candidate/metrics.json",
         reader=None,
         writer=None,
         logger=None,
@@ -274,13 +274,14 @@ class Trainer:
         start_train = time.time()
         self.pipeline.fit(X_train, y_train)
         train_time = time.time() - start_train
+        train_samples = int(len(X_train))
         del X_train, y_train
         gc.collect()
         
         print(f"[INFO] Training completed in {train_time:.2f} sec.")
         results, y_test, preds = self._evaluate(X_test, y_test, model=self.pipeline)
         results["training_time_sec"] = round(train_time, 2)
-        results["train_samples"] =  int(len(X_train))
+        results["train_samples"] =  train_samples
 
         del y_test, preds
         gc.collect()

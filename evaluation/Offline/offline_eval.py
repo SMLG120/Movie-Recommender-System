@@ -84,12 +84,19 @@ def evaluate(
 
     # Load evaluation dataset
     data = pd.read_parquet(eval_data)
-    y_test = data["rating"].to_list()
+    y_test = data["rating"].to_numpy()
+
+    expected_cols = list(preprocessor.feature_names_in_)
+    for col in expected_cols:
+        if col not in data.columns:
+            data[col] = 0
+
+    data = data[expected_cols]
 
     # Run inference
     start_time = time.time()
     preds = pipeline.predict(data)
-    inference_time = (time.time() - start_time) / max(len(X_test), 1)
+    inference_time = (time.time() - start_time) / max(len(data), 1)
 
     # Compute metrics
     reg_metrics = regression_metrics(y_test, preds)
@@ -121,7 +128,7 @@ def evaluate(
             "preproc_path": preproc_path,
             "model_path": model_path,
             "eval_data_path": eval_data,
-            "test_set_size": len(X_test),
+            "test_set_size": len(data),
             "rmse": reg_metrics["rmse"],
             "mae": reg_metrics["mae"],
             "r2": reg_metrics["r2"],
@@ -145,7 +152,7 @@ if __name__ == "__main__":
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     preproc_path = os.path.join("src", "models", "v2", "preprocessor.joblib")
     model_path = os.path.join("src", "models", "v2", "xgb_model.joblib")
-    eval_data = os.path.join("data", "test_data", "offline_eval_data.csv")
+    eval_data = os.path.join("data", "test_data", "offline_eval_data.parquet")
     results_path = os.path.join(project_root, "evaluation", "Offline", "evaluation_results.json")
 
     evaluate(
