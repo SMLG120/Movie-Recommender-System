@@ -72,9 +72,7 @@ class CFTrainer:
         ratings = self.reader(ratings_csv).dropna(subset=["user_id", "movie_id", "rating"])
         ratings["user_id"] = ratings["user_id"].astype(str)
         ratings["movie_id"] = ratings["movie_id"].astype(str)
-        print(f"Loaded ratings data: {ratings.shape[0]} rows")
         ratings = ratings[~(ratings['user_id'].isin(cfg['test_ids']))] if cfg.get('test_ids') else ratings
-        print(f"Filtered ratings data: {ratings.shape[0]} rows after removing test IDs")
         ratings["rating"] = pd.to_numeric(ratings["rating"], errors="coerce")
         ratings = ratings.dropna(subset=["rating"])
 
@@ -136,13 +134,9 @@ class CFTrainer:
 
     def train_implicit(self):
         cfg = self.config
-        watch = self.reader(cfg["watch_csv"])#.drop_duplicates(subset=["movieid"], keep="first")
-        print(f"Loaded watch data: {watch.shape[0]} rows")
-        print(len(cfg.get('test_ids', [])))
+        watch = self.reader(cfg["watch_csv"])
         watch["user_id"] = watch["user_id"].astype(str)
         watch = watch[~(watch['user_id'].isin(cfg['test_ids']))] if cfg.get('test_ids') else watch #filter test IDs
-
-        print(f"Filtered watch data: {watch.shape[0]} rows after removing test IDs")
         movies = self.reader(cfg["movies_csv"], usecols=["id", "runtime"]).dropna(subset=["id"]).drop_duplicates(subset=["id"], keep="first")
         print(f"Loaded watch data: {watch.shape[0]} rows")
         print(f"Loaded movies data: {movies.shape[0]} rows")
