@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 team_6_recommender_system.egg-info/
-
 # Virtual environments
 venv/
 .venv/
@@ -18,6 +17,7 @@ env/
 *.swp
 *.swo
 .gitkeep
+.data/*
 
 # OS files
 .DS_Store
