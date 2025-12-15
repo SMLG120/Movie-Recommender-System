@@ -17,7 +17,6 @@ env/
 *.swp
 *.swo
 .gitkeep
-.data/*
 
 # OS files
 .DS_Store
@@ -34,3 +33,17 @@ Thumbs.db
 *.log
 data/raw_data/movies/
 *_xx.py
+
+
+# Large datasets
+data/
+*.csv
+
+# Embeddings / model artifacts
+embeddings/
+*.pkl
+*.pt
+*.npy
+
+# Installers
+miniconda.sh
