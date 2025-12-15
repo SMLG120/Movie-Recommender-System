@@ -67,4 +67,6 @@ data/**/*.npy
 
 # Keep small placeholder files (optional) so the folders can be tracked if desired
 !data/.gitkeep
-!data/README.md
+!data/README.mddata/
+*.csv
+miniconda.sh
