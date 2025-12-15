@@ -47,3 +47,24 @@ embeddings/
 
 # Installers
 miniconda.sh
+
+# Ignore large data folders and common heavy artifacts under data/
+data/**/raw/
+data/**/external/
+data/**/interim/
+data/**/processed/
+data/**/models/
+data/**/embeddings/
+
+# Ignore common large file types inside data (explicit)
+data/**/*.csv
+data/**/*.parquet
+data/**/*.h5
+data/**/*.pt
+data/**/*.ckpt
+data/**/*.onnx
+data/**/*.npy
+
+# Keep small placeholder files (optional) so the folders can be tracked if desired
+!data/.gitkeep
+!data/README.md
