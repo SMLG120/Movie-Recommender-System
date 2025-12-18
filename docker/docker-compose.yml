@@ -1,16 +1,24 @@
 services:
-  app:
-    build: .
+  recommender:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
+      - ../src/models:/app/src/models
+    restart: unless-stopped
 
-  kafka_ingest:
+  retrainer:
     build:
-      context: .
-      dockerfile: Dockerfile
-    command: ["python3", "src/stream_ingest.py"]
-    restart: always
+      context: ..
+      dockerfile: docker/Dockerfile.retrainer
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
+      - ../src/models:/app/src/models
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DVC_CACHE_DIR=/app/.dvc/cache
+    profiles:
+      - retrain

@@ -1,18 +1,184 @@
 [
   {
-    "timestamp": "2025-11-29T02:52:57.317735Z",
-    "issue": "feedback_low_ctr+fairness_gender",
+    "timestamp": "2025-12-04T10:15:32Z",
+    "event_type": "canary_abort",
+    "issue": "canary_low_ctr_rel",
     "details": {
-      "issue": "feedback_low_ctr+fairness_gender",
-      "ctr": 0.029850746268656716,
-      "ctr_threshold": 0.1,
-      "rating_male": 2.772727272727273,
-      "rating_female": 2.25,
-      "rating_ratio": 0.8114754098360655,
-      "rating_ratio_threshold": 0.85,
-      "n_rec_events": 30,
-      "n_interaction_events": 10,
-      "n_quality_events": 30
-    }
+      "ctr": 0.12,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.14,
+        "v2": 0.09
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 523,
+      "n_interaction_events": 62,
+      "n_quality_events": 45,
+      "rating_male": 3.8,
+      "rating_female": 3.7,
+      "rating_ratio": 0.97,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "ABORT",
+    "canary_percentage_before": 20.0,
+    "canary_percentage_after": 0.0,
+    "reason": "CTR[v2]=0.09 fell below 70% of CTR[v1]=0.14 (threshold: 0.0980). Canary release aborted and traffic returned to v1 exclusively."
+  },
+  {
+    "timestamp": "2025-12-05T14:45:18Z",
+    "event_type": "canary_check",
+    "issue": null,
+    "details": {
+      "ctr": 0.138,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.135,
+        "v2": 0.142
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 1847,
+      "n_interaction_events": 247,
+      "n_quality_events": 189,
+      "rating_male": 3.85,
+      "rating_female": 3.82,
+      "rating_ratio": 0.992,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "RAMP",
+    "canary_percentage_before": 50.0,
+    "canary_percentage_after": 60.0,
+    "reason": "CTR[v2]=0.142 > 70% of CTR[v1]=0.135 (threshold: 0.0945). Fairness ratio F/M=0.992 healthy. No issues detected. Ramping canary from 50% to 60%."
+  },
+  {
+    "timestamp": "2025-12-05T16:22:05Z",
+    "event_type": "canary_check",
+    "issue": null,
+    "details": {
+      "ctr": 0.141,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.136,
+        "v2": 0.145
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 2341,
+      "n_interaction_events": 320,
+      "n_quality_events": 256,
+      "rating_male": 3.86,
+      "rating_female": 3.84,
+      "rating_ratio": 0.994,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "RAMP",
+    "canary_percentage_before": 60.0,
+    "canary_percentage_after": 70.0,
+    "reason": "All metrics healthy. CTR[v2]=0.145 sustained > 70% threshold. Ramping to 70%."
+  },
+  {
+    "timestamp": "2025-12-05T18:10:42Z",
+    "event_type": "canary_check",
+    "issue": null,
+    "details": {
+      "ctr": 0.140,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.138,
+        "v2": 0.142
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 2956,
+      "n_interaction_events": 400,
+      "n_quality_events": 318,
+      "rating_male": 3.87,
+      "rating_female": 3.85,
+      "rating_ratio": 0.993,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "RAMP",
+    "canary_percentage_before": 70.0,
+    "canary_percentage_after": 80.0,
+    "reason": "Metrics stable. Ramping to 80%."
+  },
+  {
+    "timestamp": "2025-12-05T20:05:19Z",
+    "event_type": "canary_check",
+    "issue": null,
+    "details": {
+      "ctr": 0.142,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.139,
+        "v2": 0.144
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 3512,
+      "n_interaction_events": 480,
+      "n_quality_events": 384,
+      "rating_male": 3.88,
+      "rating_female": 3.86,
+      "rating_ratio": 0.994,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "RAMP",
+    "canary_percentage_before": 80.0,
+    "canary_percentage_after": 90.0,
+    "reason": "Metrics excellent. Ramping to 90%."
+  },
+  {
+    "timestamp": "2025-12-05T22:00:33Z",
+    "event_type": "canary_check",
+    "issue": null,
+    "details": {
+      "ctr": 0.143,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.140,
+        "v2": 0.145
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 4123,
+      "n_interaction_events": 550,
+      "n_quality_events": 437,
+      "rating_male": 3.89,
+      "rating_female": 3.87,
+      "rating_ratio": 0.994,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "RAMP",
+    "canary_percentage_before": 90.0,
+    "canary_percentage_after": 100.0,
+    "reason": "Canary at 90%, ramping to final 100% for promotion."
+  },
+  {
+    "timestamp": "2025-12-05T23:45:10Z",
+    "event_type": "promotion",
+    "issue": null,
+    "details": {
+      "ctr": 0.144,
+      "ctr_threshold": 0.10,
+      "ctr_by_model": {
+        "v1": 0.141,
+        "v2": 0.146
+      },
+      "canary_ctr_ratio_threshold": 0.70,
+      "n_rec_events": 4687,
+      "n_interaction_events": 625,
+      "n_quality_events": 501,
+      "rating_male": 3.89,
+      "rating_female": 3.88,
+      "rating_ratio": 0.997,
+      "rating_ratio_threshold": 0.85
+    },
+    "action_taken": "PROMOTE_AND_RESET",
+    "canary_percentage_before": 100.0,
+    "canary_percentage_after": 0.0,
+    "promotion_status": "SUCCESS",
+    "promotion_details": {
+      "v1_backup": "src/models_prev/20251205T234510Z",
+      "v2_promoted_to": "src/models",
+      "v2_recreated": "src/models/v2 (empty)",
+      "timestamp": "2025-12-05T23:45:10Z"
+    },
+    "reason": "Canary reached 100% with sustained performance (CTR[v2]=0.146 > 70% of v1=0.141). Promotion successful: v2 artifacts moved to v1, backup of old v1 created at models_prev/20251205T234510Z. Canary percentage reset to 0% for next cycle."
   }
 ]
