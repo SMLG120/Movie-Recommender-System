@@ -1,7 +1,7 @@
 # Movie Recommendations – COMP 585
 
 **Team 6**  
-Samuel Ha · Sanghyun Hong · Jessica Ojo · Marie Check · Eric Qiu
+Samuel Ha · Sanghyun Hong · Jessica Ojo · Eric Qiu
 
 ---
 
@@ -184,3 +184,4 @@ Ethical Considerations
 The team acknowledges ethical considerations related to recommendation systems. No personally identifiable information (PII) is collected or shared beyond the provided simulated dataset.
 
 We also recognize that recommendation algorithms can amplify popularity bias. This system is developed solely for COMP 585 evaluation purposes and is not intended for real-world deployment.
+
